@@ -36,6 +36,103 @@ export type Database = {
         }
         Relationships: []
       }
+      project_collaborators: {
+        Row: {
+          id: string
+          joined_at: string
+          project_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          project_id: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          project_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_collaborators_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          mode: string
+          owner_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          mode: string
+          owner_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          mode?: string
+          owner_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tracks: {
+        Row: {
+          created_at: string
+          file_url: string
+          id: string
+          project_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_url: string
+          id?: string
+          project_id: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_url?: string
+          id?: string
+          project_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
