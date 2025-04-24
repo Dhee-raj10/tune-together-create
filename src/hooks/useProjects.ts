@@ -39,6 +39,7 @@ export const useProjects = () => {
       }
 
       toast.success('Project created successfully!');
+      // Instead of showing a confirmation message, redirect to project details
       navigate(`/project/${data.id}`);
       return data;
     } catch (err) {

@@ -12,6 +12,10 @@ export default defineConfig(({ mode }) => ({
       strict: true,
     },
     proxy: {},
+    // Add history fallback for SPA routing
+    historyApiFallback: {
+      disableDotRule: true
+    }
   },
   plugins: [
     react(),
