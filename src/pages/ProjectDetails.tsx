@@ -1,16 +1,21 @@
-
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
+// Update the Project interface to include type guard for mode
 interface Project {
   id: string;
   title: string;
   description: string | null;
   mode: 'solo' | 'collaboration' | 'learning';
   created_at: string;
+}
+
+// Type guard function to validate mode
+function isValidProjectMode(mode: string): mode is Project['mode'] {
+  return ['solo', 'collaboration', 'learning'].includes(mode);
 }
 
 const ProjectDetails = () => {
@@ -28,7 +33,14 @@ const ProjectDetails = () => {
           .single();
 
         if (error) throw error;
-        setProject(data);
+
+        // Validate the mode before setting the project
+        if (data && isValidProjectMode(data.mode)) {
+          setProject(data as Project);
+        } else {
+          console.error('Invalid project mode');
+          setProject(null);
+        }
       } catch (err) {
         console.error('Error fetching project:', err);
       } finally {
