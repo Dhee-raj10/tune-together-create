@@ -20,6 +20,11 @@ interface Project {
   mode: 'solo' | 'collaboration' | 'learning';
 }
 
+// Function to validate if a string is a valid project mode
+const isValidProjectMode = (mode: string): mode is 'solo' | 'collaboration' | 'learning' => {
+  return ['solo', 'collaboration', 'learning'].includes(mode);
+};
+
 export const ProfileList = () => {
   const [profiles, setProfiles] = useState<(Profile & { projects?: Project[] })[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -56,9 +61,15 @@ export const ProfileList = () => {
               .eq('owner_id', profile.id)
               .limit(3); // Limit to the most recent 3 projects
 
+            // Map the projects with validated mode type
+            const typedProjects = projectsData?.map(project => ({
+              ...project,
+              mode: isValidProjectMode(project.mode) ? project.mode : 'solo' // Default to 'solo' if invalid
+            })) || [];
+
             return {
               ...profile,
-              projects: projectsData || []
+              projects: typedProjects
             };
           })
         );

@@ -39,8 +39,8 @@ export const useProjects = () => {
       }
 
       toast.success('Project created successfully!');
-      // Instead of showing a confirmation message, redirect to project details
-      navigate(`/project/${data.id}`);
+      // Navigate directly to the music studio page instead of project details
+      navigate(`/studio/${data.id}`);
       return data;
     } catch (err) {
       toast.error('An unexpected error occurred');

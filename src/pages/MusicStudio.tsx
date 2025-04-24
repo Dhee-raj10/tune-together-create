@@ -13,6 +13,11 @@ interface Project {
   mode: 'solo' | 'collaboration' | 'learning';
 }
 
+// Function to validate if a string is a valid project mode
+const isValidProjectMode = (mode: string): mode is 'solo' | 'collaboration' | 'learning' => {
+  return ['solo', 'collaboration', 'learning'].includes(mode);
+};
+
 const MusicStudio = () => {
   const { projectId } = useParams();
   const [project, setProject] = useState<Project | null>(null);
@@ -29,14 +34,21 @@ const MusicStudio = () => {
 
         if (error) throw error;
         
-        if (data && ['solo', 'collaboration', 'learning'].includes(data.mode)) {
-          setProject(data as Project);
+        if (data) {
+          // Validate mode before setting state
+          const mode = isValidProjectMode(data.mode) ? data.mode : 'solo';
+          
+          setProject({
+            ...data,
+            mode
+          });
         } else {
-          console.error("Invalid project data");
+          console.error("Project data not found");
           setProject(null);
         }
       } catch (err) {
         console.error("Error fetching project:", err);
+        setProject(null);
       } finally {
         setIsLoading(false);
       }
