@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { TrackList } from "@/components/TrackList";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Project {
   id: string;
@@ -32,6 +33,7 @@ const isValidProjectMode = (mode: string): mode is 'solo' | 'collaboration' | 'l
 
 const MusicStudio = () => {
   const { projectId } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -160,7 +162,7 @@ const MusicStudio = () => {
             </div>
           </div>
 
-          {/* Basic Studio Layout */}
+          {/* Grid layout for studio components */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Virtual Instruments Panel */}
             <div className="lg:col-span-3 border rounded-lg p-4 bg-card">
@@ -238,6 +240,16 @@ const MusicStudio = () => {
                 </Button>
               </div>
             </div>
+          </div>
+          
+          {/* Track List Section */}
+          <div className="mt-8">
+            {user && (
+              <TrackList 
+                projectId={project.id}
+                userId={user.id}
+              />
+            )}
           </div>
         </div>
       </main>
