@@ -104,6 +104,9 @@ export type Database = {
       tracks: {
         Row: {
           created_at: string
+          duration: number | null
+          file_size: number | null
+          file_type: string | null
           file_url: string
           id: string
           project_id: string
@@ -112,6 +115,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          duration?: number | null
+          file_size?: number | null
+          file_type?: string | null
           file_url: string
           id?: string
           project_id: string
@@ -120,6 +126,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          duration?: number | null
+          file_size?: number | null
+          file_type?: string | null
           file_url?: string
           id?: string
           project_id?: string

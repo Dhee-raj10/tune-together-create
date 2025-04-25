@@ -1,8 +1,7 @@
 
-import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Square, Repeat } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
+import React, { useRef, useState } from 'react';
+import { Play, Pause, Repeat } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface TrackPlayerProps {
   trackUrl: string;
@@ -10,134 +9,79 @@ interface TrackPlayerProps {
   duration?: number;
 }
 
-export const TrackPlayer = ({ trackUrl, title, duration }: TrackPlayerProps) => {
+export const TrackPlayer: React.FC<TrackPlayerProps> = ({ 
+  trackUrl, 
+  title, 
+  duration 
+}) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [trackDuration, setTrackDuration] = useState(duration || 0);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  
-  // Format time in MM:SS
-  const formatTime = (time: number): string => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  };
-  
-  // Initialize audio element
-  useEffect(() => {
+
+  const handlePlay = () => {
     if (audioRef.current) {
-      audioRef.current.addEventListener('loadedmetadata', () => {
-        setTrackDuration(audioRef.current?.duration || 0);
-      });
-      
-      audioRef.current.addEventListener('timeupdate', () => {
-        setCurrentTime(audioRef.current?.currentTime || 0);
-      });
-      
-      audioRef.current.addEventListener('ended', () => {
-        if (!isLooping) {
-          setIsPlaying(false);
-        }
-      });
-      
-      // Set loop attribute based on state
-      audioRef.current.loop = isLooping;
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch((error) => {
+          toast.error(`Error playing track: ${error.message}`);
+        });
     }
-    
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    };
-  }, [isLooping]);
-  
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    
-    if (isPlaying) {
+  };
+
+  const handlePause = () => {
+    if (audioRef.current) {
       audioRef.current.pause();
-    } else {
-      audioRef.current.play().catch((e) => {
-        console.error("Playback failed:", e);
-        toast.error("Playback failed. Please try again.");
-      });
+      setIsPlaying(false);
     }
-    
-    setIsPlaying(!isPlaying);
   };
-  
-  const stopPlayback = () => {
-    if (!audioRef.current) return;
-    audioRef.current.pause();
-    audioRef.current.currentTime = 0;
-    setIsPlaying(false);
-    setCurrentTime(0);
+
+  const handleToggleLoop = () => {
+    if (audioRef.current) {
+      audioRef.current.loop = !isLooping;
+      setIsLooping(!isLooping);
+    }
   };
-  
-  const toggleLoop = () => {
-    if (!audioRef.current) return;
-    audioRef.current.loop = !isLooping;
-    setIsLooping(!isLooping);
-  };
-  
-  const handleSliderChange = (value: number[]) => {
-    if (!audioRef.current) return;
-    const newTime = value[0];
-    audioRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
-  
+
   return (
-    <div className="border rounded-md p-4 bg-card">
-      <div className="flex justify-between items-center mb-2">
-        <h4 className="font-medium truncate mr-2">{title}</h4>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="h-8 w-8"
-            onClick={togglePlay}
-            aria-label={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="h-8 w-8"
-            onClick={stopPlayback}
-            aria-label="Stop"
-          >
-            <Square size={16} />
-          </Button>
-          <Button 
-            variant={isLooping ? "secondary" : "outline"} 
-            size="icon" 
-            className="h-8 w-8"
-            onClick={toggleLoop}
-            aria-label={isLooping ? "Loop enabled" : "Loop disabled"}
-          >
-            <Repeat size={16} />
-          </Button>
-        </div>
+    <div className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
+      <audio 
+        ref={audioRef} 
+        src={trackUrl} 
+        onEnded={() => setIsPlaying(false)}
+      />
+      <div className="flex-1">
+        <h4 className="font-medium">{title}</h4>
+        {duration && (
+          <p className="text-sm text-muted-foreground">
+            {Math.floor(duration / 60)}:{(duration % 60).toFixed(0)} mins
+          </p>
+        )}
       </div>
-      
-      <div className="space-y-2">
-        <Slider
-          min={0}
-          max={trackDuration}
-          step={0.1}
-          value={[currentTime]} 
-          onValueChange={handleSliderChange}
-        />
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(trackDuration)}</span>
-        </div>
+      <div className="flex items-center space-x-2">
+        {isPlaying ? (
+          <button 
+            onClick={handlePause} 
+            className="hover:bg-muted rounded-full p-2"
+          >
+            <Pause className="h-5 w-5" />
+          </button>
+        ) : (
+          <button 
+            onClick={handlePlay} 
+            className="hover:bg-muted rounded-full p-2"
+          >
+            <Play className="h-5 w-5" />
+          </button>
+        )}
+        <button 
+          onClick={handleToggleLoop} 
+          className={`hover:bg-muted rounded-full p-2 ${isLooping ? 'text-primary' : 'text-muted-foreground'}`}
+        >
+          <Repeat className="h-5 w-5" />
+        </button>
       </div>
-      
-      <audio ref={audioRef} src={trackUrl} preload="metadata" />
     </div>
   );
 };
