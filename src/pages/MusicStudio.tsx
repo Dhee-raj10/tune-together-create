@@ -1,10 +1,22 @@
 
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface Project {
   id: string;
@@ -20,8 +32,10 @@ const isValidProjectMode = (mode: string): mode is 'solo' | 'collaboration' | 'l
 
 const MusicStudio = () => {
   const { projectId } = useParams();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -59,6 +73,30 @@ const MusicStudio = () => {
     }
   }, [projectId]);
 
+  const handleDeleteProject = async () => {
+    if (!projectId) return;
+    
+    setIsDeleting(true);
+    try {
+      // 1. Delete the project from the database
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
+        
+      if (error) throw error;
+      
+      toast.success("Project deleted successfully");
+      // 2. Redirect to the dashboard
+      navigate('/');
+    } catch (err) {
+      console.error("Error deleting project:", err);
+      toast.error("Failed to delete project");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="text-center p-6">Loading studio...</div>;
   }
@@ -88,8 +126,37 @@ const MusicStudio = () => {
               </Button>
               <h1 className="text-2xl font-bold">{project.title}</h1>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {project.mode} mode
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-muted-foreground">
+                {project.mode} mode
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" className="flex items-center gap-2">
+                    <Trash2 className="h-4 w-4" />
+                    Delete Project
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your
+                      project and all associated data.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteProject}
+                      disabled={isDeleting}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      {isDeleting ? "Deleting..." : "Delete"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
 

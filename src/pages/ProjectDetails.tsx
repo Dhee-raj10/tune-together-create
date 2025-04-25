@@ -1,8 +1,21 @@
+
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Update the Project interface to include type guard for mode
 interface Project {
@@ -20,8 +33,10 @@ function isValidProjectMode(mode: string): mode is Project['mode'] {
 
 const ProjectDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -53,6 +68,30 @@ const ProjectDetails = () => {
     }
   }, [id]);
 
+  const handleDeleteProject = async () => {
+    if (!id) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete the project from the database
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      toast.success("Project deleted successfully");
+      // Redirect to the dashboard
+      navigate('/');
+    } catch (err) {
+      console.error("Error deleting project:", err);
+      toast.error("Failed to delete project");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="container py-8">Loading your music project... 🎵</div>;
   }
@@ -72,12 +111,42 @@ const ProjectDetails = () => {
 
   return (
     <div className="container py-8">
-      <Button variant="ghost" asChild className="mb-6">
-        <Link to="/" className="flex items-center gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Projects
-        </Link>
-      </Button>
+      <div className="flex justify-between items-center mb-6">
+        <Button variant="ghost" asChild>
+          <Link to="/" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Projects
+          </Link>
+        </Button>
+        
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="sm" className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4" />
+              Delete Project
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete your
+                project and all associated data.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteProject}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
 
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">{project.title}</h1>
