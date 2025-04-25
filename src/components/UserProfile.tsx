@@ -3,18 +3,21 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
+import { MusicianRoleSelector } from './MusicianRoleSelector';
 
 interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
   username: string | null;
+  roles?: string[];
 }
 
 export const UserProfile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRoleSelectorOpen, setIsRoleSelectorOpen] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -34,6 +37,11 @@ export const UserProfile = () => {
 
         if (error) throw error;
         setProfile(data);
+        
+        // Open role selector if no roles are set
+        if (!data.roles || data.roles.length === 0) {
+          setIsRoleSelectorOpen(true);
+        }
       } catch (err) {
         setError('Profile not found');
       } finally {
@@ -57,21 +65,43 @@ export const UserProfile = () => {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardContent className="flex flex-col items-center gap-4 p-6">
-        <Avatar className="h-24 w-24">
-          <AvatarImage src={profile.avatar_url || ''} alt={profile.username || ''} />
-          <AvatarFallback>
-            {profile.username?.charAt(0).toUpperCase() || (profile.full_name?.split(' ').map(n => n[0]).join('')) || '?'}
-          </AvatarFallback>
-        </Avatar>
-        {profile.username && (
-          <h1 className="text-2xl font-bold">{profile.username}</h1>
-        )}
-        {profile.full_name && (
-          <p className="text-muted-foreground">{profile.full_name}</p>
-        )}
-      </CardContent>
-    </Card>
+    <>
+      <Card className="w-full max-w-md mx-auto">
+        <CardContent className="flex flex-col items-center gap-4 p-6">
+          <Avatar className="h-24 w-24">
+            <AvatarImage src={profile.avatar_url || ''} alt={profile.username || ''} />
+            <AvatarFallback>
+              {profile.username?.charAt(0).toUpperCase() || (profile.full_name?.split(' ').map(n => n[0]).join('')) || '?'}
+            </AvatarFallback>
+          </Avatar>
+          {profile.username && (
+            <h1 className="text-2xl font-bold">{profile.username}</h1>
+          )}
+          {profile.full_name && (
+            <p className="text-muted-foreground">{profile.full_name}</p>
+          )}
+          {profile.roles && profile.roles.length > 0 && (
+            <div className="flex flex-wrap gap-2 justify-center">
+              {profile.roles.map(role => (
+                <span 
+                  key={role} 
+                  className="bg-music-100 text-music-800 px-2 py-1 rounded-full text-sm"
+                >
+                  {role}
+                </span>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {profile && (
+        <MusicianRoleSelector 
+          isOpen={isRoleSelectorOpen}
+          onClose={() => setIsRoleSelectorOpen(false)}
+          userId={profile.id}
+        />
+      )}
+    </>
   );
 };
