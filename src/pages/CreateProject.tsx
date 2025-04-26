@@ -12,16 +12,26 @@ import { CollaboratorSelector } from "@/components/CollaboratorSelector";
 import { ProfileList } from "@/components/ProfileList";
 import { useProjects } from "@/hooks/useProjects";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CreateProject = () => {
   const { mode } = useParams<{ mode: string }>();
   const location = useLocation();
   const { createProject, isLoading } = useProjects();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [collaboratorId, setCollaboratorId] = useState<string | null>(null);
+
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!user) {
+      toast.error("You must be logged in to create a project");
+      navigate("/login", { state: { returnTo: location.pathname } });
+    }
+  }, [user, navigate, location]);
 
   // Parse URL params for collaborator ID
   useEffect(() => {
@@ -35,6 +45,12 @@ const CreateProject = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      toast.error('You must be logged in to create a project');
+      navigate('/login');
+      return;
+    }
 
     if (!projectName.trim()) {
       toast.error('Project name is required');
@@ -51,11 +67,19 @@ const CreateProject = () => {
       normalizedMode = 'solo';
     }
 
-    await createProject({
+    const projectData = {
       title: projectName,
       description: projectDescription,
-      mode: normalizedMode
-    });
+      mode: normalizedMode,
+      // If we have a collaborator ID, we'll add it later in a separate API call
+      collaboratorId: collaboratorId || undefined,
+      selectedRoles: selectedRoles.length > 0 ? selectedRoles : undefined
+    };
+
+    const project = await createProject(projectData);
+    if (project) {
+      toast.success("Project created successfully!");
+    }
   };
 
   return (

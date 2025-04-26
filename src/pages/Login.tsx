@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Music } from "lucide-react";
 import { toast } from "sonner";
 
 const Login = () => {
@@ -47,7 +47,7 @@ const Login = () => {
         <div className="relative w-full max-w-md space-y-8 px-4">
           <div>
             <div className="flex justify-center">
-              <MusicIcon className="h-12 w-12 text-music-400" />
+              <Music className="h-12 w-12 text-music-400" />
             </div>
             <h2 className="mt-6 text-center text-3xl font-bold">
               Welcome back
@@ -125,26 +125,5 @@ const Login = () => {
     </div>
   );
 };
-
-function MusicIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M9 18V5l12-2v13" />
-      <circle cx="6" cy="18" r="3" />
-      <circle cx="18" cy="16" r="3" />
-    </svg>
-  );
-}
 
 export default Login;

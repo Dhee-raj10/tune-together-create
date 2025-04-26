@@ -8,6 +8,8 @@ interface ProjectData {
   title: string;
   description?: string;
   mode: 'solo' | 'collaboration' | 'learning';
+  collaboratorId?: string;
+  selectedRoles?: string[];
 }
 
 export const useProjects = () => {
@@ -24,10 +26,13 @@ export const useProjects = () => {
         return null;
       }
 
+      // Create the project first
       const { data, error } = await supabase
         .from('projects')
         .insert({
-          ...projectData,
+          title: projectData.title,
+          description: projectData.description || null,
+          mode: projectData.mode,
           owner_id: user.id
         })
         .select()
@@ -38,11 +43,31 @@ export const useProjects = () => {
         return null;
       }
 
-      toast.success('Project created successfully!');
-      // Navigate directly to the music studio page instead of project details
+      // If collaboration mode and we have a collaborator ID, set up the collaboration
+      if (projectData.mode === 'collaboration' && projectData.collaboratorId) {
+        const { error: collabError } = await supabase
+          .from('project_collaborators')
+          .insert({
+            project_id: data.id,
+            user_id: projectData.collaboratorId,
+            role: projectData.selectedRoles && projectData.selectedRoles.length > 0 
+              ? projectData.selectedRoles[0] 
+              : 'contributor'
+          });
+
+        if (collabError) {
+          toast.error(`Error setting up collaboration: ${collabError.message}`);
+          // Continue anyway since the project was created
+        } else {
+          toast.success('Collaboration invitation sent!');
+        }
+      }
+
+      // Navigate to the music studio
       navigate(`/studio/${data.id}`);
       return data;
     } catch (err) {
+      console.error('Project creation error:', err);
       toast.error('An unexpected error occurred');
       return null;
     } finally {
