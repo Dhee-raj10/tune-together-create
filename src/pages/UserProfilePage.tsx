@@ -17,6 +17,8 @@ interface Project {
   description: string | null;
   mode: 'solo' | 'collaboration' | 'learning';
   created_at: string;
+  owner_id?: string;
+  updated_at?: string;
 }
 
 const UserProfilePage = () => {
@@ -58,7 +60,15 @@ const UserProfilePage = () => {
         
         if (error) throw error;
         
-        setProjects(data || []);
+        if (data) {
+          // Validate and transform mode to ensure it matches the expected type
+          const typedProjects: Project[] = data.map(project => ({
+            ...project,
+            mode: validateProjectMode(project.mode)
+          }));
+          
+          setProjects(typedProjects);
+        }
       } catch (err) {
         console.error('Error fetching user projects:', err);
         toast.error('Failed to load projects');
@@ -69,6 +79,15 @@ const UserProfilePage = () => {
 
     fetchUserProjects();
   }, [profileUserId, isOwnProfile]);
+
+  // Helper function to validate project mode
+  const validateProjectMode = (mode: string): 'solo' | 'collaboration' | 'learning' => {
+    if (mode === 'solo' || mode === 'collaboration' || mode === 'learning') {
+      return mode;
+    }
+    // Default to 'solo' if the mode is invalid
+    return 'solo';
+  };
 
   const handleLogout = async () => {
     try {

@@ -1,228 +1,210 @@
 
-import React, { useState, useRef, useCallback } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { Upload, X, File, Music } from 'lucide-react';
-import { Button } from './ui/button';
-import { Progress } from './ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Music, Upload, X } from 'lucide-react';
+import { formatTime } from '@/lib/formatTime';
 
 interface TrackUploaderProps {
   projectId: string;
-  userId: string;
-  onUploadComplete?: () => void;
+  onUploadComplete?: (trackData: any) => void;
 }
 
-export const TrackUploader: React.FC<TrackUploaderProps> = ({ 
-  projectId, 
-  userId, 
-  onUploadComplete 
-}) => {
-  const [isUploading, setIsUploading] = useState(false);
+export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploadComplete }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [dragActive, setDragActive] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [trackDuration, setTrackDuration] = useState<number | null>(null);
 
-  // Supported file types
-  const supportedTypes = [
-    'audio/mpeg', // .mp3
-    'audio/wav',  // .wav
-    'audio/ogg',  // .ogg
-    'audio/aac',  // .aac
-    'audio/flac', // .flac
-    'audio/x-m4a' // .m4a
-  ];
-
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  }, []);
-
-  const validateFile = (file: File): boolean => {
-    if (!supportedTypes.includes(file.type)) {
-      toast.error(`Unsupported file type. Please upload one of: .mp3, .wav, .ogg, .aac, .flac, .m4a`);
-      return false;
-    }
-    
-    // Max file size (30MB)
-    const maxSize = 30 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error('File is too large. Maximum size is 30MB.');
-      return false;
-    }
-    
-    return true;
-  };
-
-  const calculateAudioDuration = (file: File): Promise<number> => {
+  const getTrackDuration = (file: File): Promise<number> => {
     return new Promise((resolve) => {
       const audio = new Audio();
-      audio.onloadedmetadata = () => {
-        resolve(audio.duration);
-      };
       audio.src = URL.createObjectURL(file);
+      
+      audio.addEventListener('loadedmetadata', () => {
+        resolve(audio.duration);
+        URL.revokeObjectURL(audio.src);
+      });
+      
+      // In case of error, resolve with 0
+      audio.addEventListener('error', () => {
+        resolve(0);
+        URL.revokeObjectURL(audio.src);
+      });
     });
   };
 
-  const handleFileUpload = async (file: File) => {
-    if (!file || !validateFile(file)) return;
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+    
+    // Check file type
+    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Unsupported file type. Please upload MP3, WAV, or OGG files.');
+      return;
+    }
+    
+    // Get audio duration
+    const duration = await getTrackDuration(file);
+    setTrackDuration(duration);
+    
+    setSelectedFile(file);
+  }, []);
 
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'audio/mpeg': ['.mp3'],
+      'audio/wav': ['.wav'],
+      'audio/ogg': ['.ogg'],
+    },
+    maxFiles: 1,
+  });
+
+  const uploadTrack = async () => {
+    if (!selectedFile || !projectId) return;
+    
     setIsUploading(true);
     setUploadProgress(0);
-
+    
     try {
-      // Calculate audio duration
-      const duration = await calculateAudioDuration(file);
+      // Upload file to Supabase Storage
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `tracks/${projectId}/${fileName}`;
       
-      // Upload file to Supabase storage
-      const fileExtension = file.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}.${fileExtension}`;
+      // Create a custom upload handler to track progress
+      const xhr = new XMLHttpRequest();
       
+      xhr.upload.addEventListener('progress', event => {
+        if (event.lengthComputable) {
+          const progress = (event.loaded / event.total) * 100;
+          setUploadProgress(progress);
+        }
+      });
+      
+      // Use the Upload API directly
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('tracks')
-        .upload(fileName, file, {
+        .from('audio')
+        .upload(filePath, selectedFile, {
           cacheControl: '3600',
           upsert: false,
-          onUploadProgress: (progress) => {
-            const percent = Math.round((progress.loaded / progress.total) * 100);
-            setUploadProgress(percent);
-          }
         });
 
-      if (uploadError) throw uploadError;
-
-      // Get public URL for the uploaded file
-      const { data: urlData } = supabase.storage.from('tracks').getPublicUrl(fileName);
-
-      // Create track record in database
-      const { data, error } = await supabase
+      if (uploadError) {
+        throw uploadError;
+      }
+      
+      // Get public URL
+      const { data: urlData } = await supabase.storage
+        .from('audio')
+        .getPublicUrl(filePath);
+        
+      const publicUrl = urlData?.publicUrl;
+      
+      // Save track metadata to database
+      const { data: trackData, error: trackError } = await supabase
         .from('tracks')
         .insert({
-          title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
-          file_url: urlData.publicUrl,
           project_id: projectId,
-          user_id: userId,
-          duration: duration,
-          file_type: file.type,
-          file_size: file.size
+          title: selectedFile.name.split('.')[0],
+          file_path: filePath,
+          public_url: publicUrl,
+          duration: trackDuration || 0,
+          file_size: selectedFile.size,
+          file_type: selectedFile.type,
         })
-        .select();
+        .select()
+        .single();
 
-      if (error) throw error;
-
-      toast.success('Track uploaded successfully!');
-      setShowUploadModal(false);
-      onUploadComplete?.();
+      if (trackError) {
+        throw trackError;
+      }
+      
+      toast.success('Track uploaded successfully');
+      setSelectedFile(null);
+      setTrackDuration(null);
+      
+      if (onUploadComplete) {
+        onUploadComplete(trackData);
+      }
     } catch (error) {
-      console.error('Track upload error:', error);
+      console.error('Error uploading track:', error);
       toast.error('Failed to upload track');
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileUpload(e.dataTransfer.files[0]);
-    }
-  }, [handleFileUpload]);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileUpload(file);
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
+  const cancelUpload = () => {
+    setSelectedFile(null);
+    setTrackDuration(null);
   };
 
   return (
-    <div className="w-full">
-      <Button 
-        onClick={() => setShowUploadModal(true)}
-        className="w-full flex items-center justify-center gap-2 p-4 bg-music-400 hover:bg-music-500 text-white"
-      >
-        <Upload className="h-5 w-5" />
-        Upload New Track
-      </Button>
+    <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow p-6">
+      <h3 className="text-xl font-bold mb-4 flex items-center">
+        <Music className="mr-2" size={20} />
+        Upload Track
+      </h3>
       
-      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Upload Track</DialogTitle>
-            <DialogDescription>
-              Upload audio files (.mp3, .wav, .ogg, etc.) to add to your project
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div 
-            className={`mt-4 p-8 border-2 border-dashed rounded-lg flex flex-col items-center justify-center transition-colors
-              ${dragActive ? 'border-music-400 bg-music-50' : 'border-muted'}`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              accept=".mp3,.wav,.ogg,.flac,.aac,.m4a"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            
-            <Music className="h-12 w-12 text-muted-foreground mb-4" />
-            
-            {isUploading ? (
-              <div className="w-full space-y-4">
-                <div className="text-center">Uploading {uploadProgress}%</div>
-                <Progress value={uploadProgress} className="h-2" />
+      {!selectedFile ? (
+        <div
+          {...getRootProps()}
+          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+            isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+          }`}
+        >
+          <input {...getInputProps()} />
+          <Upload className="mx-auto h-12 w-12 text-gray-400" />
+          <p className="mt-2 text-sm font-medium">
+            {isDragActive
+              ? 'Drop the audio file here...'
+              : 'Drag and drop an audio file, or click to browse'}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">Supports MP3, WAV, OGG</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+            <div className="flex items-center">
+              <Music className="h-8 w-8 text-blue-500 mr-3" />
+              <div className="truncate">
+                <p className="font-medium truncate">{selectedFile.name}</p>
+                <div className="flex text-xs text-gray-500">
+                  <span>{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                  {trackDuration && (
+                    <span className="ml-2">Length: {formatTime(trackDuration)}</span>
+                  )}
+                </div>
               </div>
-            ) : (
-              <>
-                <p className="text-center mb-2">
-                  Drag and drop your audio file here, or click to browse
-                </p>
-                <Button 
-                  onClick={triggerFileInput}
-                  variant="outline"
-                  className="mt-2"
-                >
-                  Select File
-                </Button>
-                <p className="text-xs text-muted-foreground mt-4">
-                  Supported formats: MP3, WAV, OGG, FLAC, AAC, M4A (max 30MB)
-                </p>
-              </>
-            )}
+            </div>
+            <button onClick={cancelUpload} className="text-gray-500 hover:text-red-500">
+              <X size={18} />
+            </button>
           </div>
           
-          <div className="flex justify-between mt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowUploadModal(false)}
-              disabled={isUploading}
-            >
-              Cancel
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          {isUploading ? (
+            <div className="space-y-2">
+              <Progress value={uploadProgress} />
+              <p className="text-xs text-center">{Math.round(uploadProgress)}% Complete</p>
+            </div>
+          ) : (
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={cancelUpload}>
+                Cancel
+              </Button>
+              <Button onClick={uploadTrack}>
+                Upload Track
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
