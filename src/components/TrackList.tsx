@@ -77,7 +77,6 @@ export const TrackList = ({ projectId, userId }: TrackListProps) => {
       
       <TrackUploader 
         projectId={projectId}
-        userId={userId}
         onUploadComplete={fetchTracks}
       />
       

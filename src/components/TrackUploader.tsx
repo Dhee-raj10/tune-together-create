@@ -106,14 +106,14 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
         
       const publicUrl = urlData?.publicUrl;
       
-      // Save track metadata to database
+      // Save track metadata to database - using the correct field names
       const { data: trackData, error: trackError } = await supabase
         .from('tracks')
         .insert({
           project_id: projectId,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
           title: selectedFile.name.split('.')[0],
-          file_path: filePath,
-          public_url: publicUrl,
+          file_url: publicUrl,
           duration: trackDuration || 0,
           file_size: selectedFile.size,
           file_type: selectedFile.type,
