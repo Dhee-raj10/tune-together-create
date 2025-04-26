@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +13,9 @@ import MusicStudio from "./pages/MusicStudio";
 import UserProfilePage from "./pages/UserProfilePage";
 import NotFound from "./pages/NotFound";
 import About from "./pages/About";
+// Create a new QueryClient instance
+import Learn from "./pages/Learn";
+import LearningModule from "./pages/LearningModule";
 
 // Create a new QueryClient instance
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => {
               <Route path="/profile" element={<UserProfilePage />} />
               <Route path="/profile/:userId" element={<UserProfilePage />} />
               <Route path="/about" element={<About />} />
+              <Route path="/learn" element={<Learn />} />
+              <Route path="/learn/module/:moduleId" element={<LearningModule />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />

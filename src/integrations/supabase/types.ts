@@ -9,6 +9,147 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      learning_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      learning_content: {
+        Row: {
+          content_type: string
+          content_url: string
+          created_at: string
+          duration: number | null
+          id: string
+          module_id: string
+          order_index: number
+          title: string
+        }
+        Insert: {
+          content_type: string
+          content_url: string
+          created_at?: string
+          duration?: number | null
+          id?: string
+          module_id: string
+          order_index: number
+          title: string
+        }
+        Update: {
+          content_type?: string
+          content_url?: string
+          created_at?: string
+          duration?: number | null
+          id?: string
+          module_id?: string
+          order_index?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_content_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "learning_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_modules: {
+        Row: {
+          category_id: string
+          created_at: string
+          description: string | null
+          difficulty_level: string
+          id: string
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          description?: string | null
+          difficulty_level: string
+          id?: string
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string
+          id?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_modules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "learning_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_quizzes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          module_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          module_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          module_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_quizzes_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "learning_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -101,6 +242,73 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_answers: {
+        Row: {
+          answer_text: string
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+        }
+        Insert: {
+          answer_text: string
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+        }
+        Update: {
+          answer_text?: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          created_at: string
+          id: string
+          order_index: number
+          question: string
+          question_type: string
+          quiz_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_index: number
+          question: string
+          question_type: string
+          quiz_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_index?: number
+          question?: string
+          question_type?: string
+          quiz_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "learning_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tracks: {
         Row: {
           created_at: string
@@ -141,6 +349,79 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_learning_progress: {
+        Row: {
+          bookmarked: boolean | null
+          completed: boolean | null
+          content_id: string
+          created_at: string
+          id: string
+          last_position: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bookmarked?: boolean | null
+          completed?: boolean | null
+          content_id: string
+          created_at?: string
+          id?: string
+          last_position?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bookmarked?: boolean | null
+          completed?: boolean | null
+          content_id?: string
+          created_at?: string
+          id?: string
+          last_position?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_learning_progress_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "learning_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_quiz_results: {
+        Row: {
+          completed_at: string
+          id: string
+          quiz_id: string
+          score: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          quiz_id: string
+          score: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          quiz_id?: string
+          score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_quiz_results_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "learning_quizzes"
             referencedColumns: ["id"]
           },
         ]
