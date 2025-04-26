@@ -24,6 +24,8 @@ const CreateProject = () => {
   const [projectDescription, setProjectDescription] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [collaboratorId, setCollaboratorId] = useState<string | null>(null);
+  const [showRoleSelector, setShowRoleSelector] = useState(true);
+  const [showCollaboratorList, setShowCollaboratorList] = useState(false);
 
   // Check if user is authenticated
   useEffect(() => {
@@ -39,6 +41,8 @@ const CreateProject = () => {
     const collaboratorParam = searchParams.get('collaborator');
     if (collaboratorParam) {
       setCollaboratorId(collaboratorParam);
+      setShowRoleSelector(false);
+      setShowCollaboratorList(false);
       toast.info("Collaboration setup with a selected user");
     }
   }, [location.search]);
@@ -82,6 +86,13 @@ const CreateProject = () => {
     }
   };
 
+  const handleRoleSelect = (roles: string[]) => {
+    setSelectedRoles(roles);
+    if (mode === 'collaborate') {
+      setShowCollaboratorList(true);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -100,14 +111,29 @@ const CreateProject = () => {
             </p>
           </div>
 
-          {mode === "collaborate" && !collaboratorId && (
+          {mode === "collaborate" && showRoleSelector && !collaboratorId && (
             <div className="mb-10">
-              <h2 className="text-2xl font-bold mb-6">Choose a Collaborator</h2>
-              <ProfileList />
+              <h2 className="text-2xl font-bold mb-4">What type of musician are you looking for?</h2>
+              <p className="text-muted-foreground mb-6">
+                Select the roles you're seeking to collaborate with on this project.
+              </p>
+              <CollaboratorSelector onSelectRoles={handleRoleSelect} />
             </div>
           )}
 
-          {(mode !== "collaborate" || collaboratorId) && (
+          {mode === "collaborate" && showCollaboratorList && !collaboratorId && (
+            <div className="mb-10">
+              <h2 className="text-2xl font-bold mb-4">Available Musicians</h2>
+              <p className="text-muted-foreground mb-6">
+                {selectedRoles.length > 0 
+                  ? `Showing musicians with ${selectedRoles.join(', ')} expertise` 
+                  : 'Showing all available musicians'}
+              </p>
+              <ProfileList selectedRoles={selectedRoles} />
+            </div>
+          )}
+
+          {(mode !== "collaborate" || collaboratorId || !showRoleSelector) && (
             <Card>
               <CardContent className="pt-6">
                 <form onSubmit={handleSubmit} className="space-y-8">
@@ -134,12 +160,18 @@ const CreateProject = () => {
                       />
                     </div>
 
-                    {mode === "collaborate" && (
+                    {mode === "collaborate" && !collaboratorId && (
                       <div className="space-y-2">
-                        <Label>Looking for Collaborators</Label>
-                        <CollaboratorSelector 
-                          onSelectRoles={setSelectedRoles} 
-                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setShowRoleSelector(true);
+                            setShowCollaboratorList(false);
+                          }}
+                        >
+                          Back to Role Selection
+                        </Button>
                       </div>
                     )}
                   </div>

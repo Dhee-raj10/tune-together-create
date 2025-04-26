@@ -5,12 +5,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
+import { useProjects } from '@/hooks/useProjects';
+import { Loader2 } from 'lucide-react';
 
 interface Profile {
   id: string;
   username: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  roles?: string[] | null;
 }
 
 interface Project {
@@ -20,19 +23,26 @@ interface Project {
   mode: 'solo' | 'collaboration' | 'learning';
 }
 
+interface ProfileListProps {
+  selectedRoles?: string[];
+}
+
 // Function to validate if a string is a valid project mode
 const isValidProjectMode = (mode: string): mode is 'solo' | 'collaboration' | 'learning' => {
   return ['solo', 'collaboration', 'learning'].includes(mode);
 };
 
-export const ProfileList = () => {
+export const ProfileList: React.FC<ProfileListProps> = ({ selectedRoles = [] }) => {
   const [profiles, setProfiles] = useState<(Profile & { projects?: Project[] })[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const { getProfilesByRoles } = useProjects();
 
   useEffect(() => {
     const fetchProfiles = async () => {
+      setIsLoading(true);
+      
       try {
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
@@ -40,21 +50,12 @@ export const ProfileList = () => {
           setCurrentUserId(user.id);
         }
 
-        // Get all profiles except current user
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*');
-
-        if (profilesError) throw profilesError;
-
-        // Filter out current user and prepare profiles
-        const filteredProfiles = user 
-          ? profilesData.filter(profile => profile.id !== user.id)
-          : profilesData;
+        // Get profiles based on selected roles
+        const profilesData = await getProfilesByRoles(selectedRoles);
 
         // Get projects for each profile
         const profilesWithProjects = await Promise.all(
-          filteredProfiles.map(async (profile) => {
+          profilesData.map(async (profile) => {
             const { data: projectsData } = await supabase
               .from('projects')
               .select('*')
@@ -83,7 +84,7 @@ export const ProfileList = () => {
     };
 
     fetchProfiles();
-  }, []);
+  }, [selectedRoles]);
 
   const handleCollaborate = (profileId: string) => {
     // Navigate to collaboration setup
@@ -91,11 +92,25 @@ export const ProfileList = () => {
   };
 
   if (isLoading) {
-    return <div className="text-center p-6">Loading profiles...</div>;
+    return (
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-music-400" />
+      </div>
+    );
   }
 
   if (profiles.length === 0) {
-    return <div className="text-center p-6">No other users found</div>;
+    return (
+      <div className="text-center p-8 bg-muted/30 rounded-lg">
+        <h3 className="text-lg font-medium mb-2">No matching musicians found</h3>
+        {selectedRoles.length > 0 && (
+          <p className="text-muted-foreground">
+            We couldn't find any musicians with the selected roles. 
+            Try selecting different roles or check back later.
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -115,6 +130,23 @@ export const ProfileList = () => {
             </div>
           </CardHeader>
           <CardContent>
+            {profile.roles && profile.roles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {profile.roles.map(role => (
+                  <span 
+                    key={role} 
+                    className={`text-xs px-2 py-1 rounded-full ${
+                      selectedRoles.includes(role) 
+                        ? 'bg-music-100 text-music-800 font-medium' 
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {role}
+                  </span>
+                ))}
+              </div>
+            )}
+            
             <h4 className="font-medium mb-2">Recent Projects</h4>
             {profile.projects && profile.projects.length > 0 ? (
               <ul className="space-y-2">

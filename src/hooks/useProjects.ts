@@ -75,5 +75,44 @@ export const useProjects = () => {
     }
   };
 
-  return { createProject, isLoading };
+  const getProfilesByRoles = async (roles: string[]) => {
+    try {
+      if (!roles || roles.length === 0) {
+        // If no roles specified, return all profiles except the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          return [];
+        }
+        
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .neq('id', user.id);
+          
+        return data || [];
+      }
+      
+      // Get the current user to exclude them from results
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return [];
+      }
+      
+      // Find profiles that have ANY of the requested roles (using containedBy for array overlap)
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('id', user.id)
+        .filter('roles', 'cs', `{${roles.join(',')}}`);
+        
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching profiles by roles:', error);
+      return [];
+    }
+  };
+
+  return { createProject, getProfilesByRoles, isLoading };
 };

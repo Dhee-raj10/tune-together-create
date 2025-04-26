@@ -11,6 +11,7 @@ import Signup from "./pages/Signup";
 import CreateProject from "./pages/CreateProject";
 import ProjectDetails from "./pages/ProjectDetails";
 import MusicStudio from "./pages/MusicStudio";
+import UserProfilePage from "./pages/UserProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,8 @@ const App = () => (
             <Route path="/create/:mode" element={<CreateProject />} />
             <Route path="/project/:id" element={<ProjectDetails />} />
             <Route path="/studio/:projectId" element={<MusicStudio />} />
+            <Route path="/profile" element={<UserProfilePage />} />
+            <Route path="/profile/:userId" element={<UserProfilePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

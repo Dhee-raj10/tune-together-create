@@ -3,6 +3,8 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { MusicianRoleSelector } from "@/components/MusicianRoleSelector";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;
@@ -15,6 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [showRoleSelector, setShowRoleSelector] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Set up auth state listener FIRST to avoid missing auth events
@@ -24,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentSession?.user ?? null);
 
         // Check if we need to show the role selector when user logs in
-        if (currentSession?.user && event === 'SIGNED_IN') {
+        if (currentSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
           setTimeout(() => {
             checkUserRoles(currentSession.user.id);
           }, 0);
@@ -41,6 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentSession?.user) {
         checkUserRoles(currentSession.user.id);
       }
+      
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -65,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{ user, session }}>
       {children}
-      {user && showRoleSelector && (
+      {user && showRoleSelector && !loading && (
         <MusicianRoleSelector
           isOpen={showRoleSelector}
           onClose={() => setShowRoleSelector(false)}

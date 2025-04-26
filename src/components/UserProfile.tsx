@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { MusicianRoleSelector } from './MusicianRoleSelector';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Profile {
   id: string;
@@ -13,36 +14,45 @@ interface Profile {
   roles?: string[];
 }
 
-export const UserProfile = () => {
+interface UserProfileProps {
+  userId?: string;
+}
+
+export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
+  const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRoleSelectorOpen, setIsRoleSelectorOpen] = useState(false);
 
+  // Use the provided userId or fall back to the current logged-in user
+  const profileId = userId || user?.id;
+  const isOwnProfile = !userId || (user && userId === user.id);
+
   useEffect(() => {
     const fetchProfile = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          setError('Not authenticated');
-          return;
-        }
+      if (!profileId) {
+        setError('User not authenticated');
+        setIsLoading(false);
+        return;
+      }
 
+      try {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', user.id)
+          .eq('id', profileId)
           .single();
 
         if (error) throw error;
         setProfile(data);
         
-        // Open role selector if no roles are set
-        if (!data.roles || data.roles.length === 0) {
+        // Open role selector if this is the user's own profile and no roles are set
+        if (isOwnProfile && (!data.roles || data.roles.length === 0)) {
           setIsRoleSelectorOpen(true);
         }
       } catch (err) {
+        console.error('Error fetching profile:', err);
         setError('Profile not found');
       } finally {
         setIsLoading(false);
@@ -50,14 +60,14 @@ export const UserProfile = () => {
     };
 
     fetchProfile();
-  }, []);
+  }, [profileId, isOwnProfile]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center p-4">Loading profile...</div>;
   }
 
   if (error) {
-    return <div className="flex items-center justify-center p-4 text-red-500">Profile not set up yet.</div>;
+    return <div className="flex items-center justify-center p-4 text-red-500">{error}</div>;
   }
 
   if (!profile) {
@@ -66,7 +76,7 @@ export const UserProfile = () => {
 
   return (
     <>
-      <Card className="w-full max-w-md mx-auto">
+      <Card className="w-full">
         <CardContent className="flex flex-col items-center gap-4 p-6">
           <Avatar className="h-24 w-24">
             <AvatarImage src={profile.avatar_url || ''} alt={profile.username || ''} />
@@ -92,10 +102,19 @@ export const UserProfile = () => {
               ))}
             </div>
           )}
+          
+          {isOwnProfile && profile.roles && profile.roles.length === 0 && (
+            <button 
+              onClick={() => setIsRoleSelectorOpen(true)}
+              className="text-sm text-music-500 hover:underline mt-2"
+            >
+              Set your musician roles
+            </button>
+          )}
         </CardContent>
       </Card>
 
-      {profile && (
+      {profile && isOwnProfile && (
         <MusicianRoleSelector 
           isOpen={isRoleSelectorOpen}
           onClose={() => setIsRoleSelectorOpen(false)}
