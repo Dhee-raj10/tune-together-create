@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/Navbar";
+import { DeleteProjectButton } from "@/components/studio/DeleteProjectButton"; // Add this import
 
 interface StudioLayoutProps {
   children: React.ReactNode;
