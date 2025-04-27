@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Music, Upload, X } from 'lucide-react';
 import { formatTime } from '@/lib/formatTime';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TrackUploaderProps {
   projectId: string;
@@ -18,6 +19,7 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [trackDuration, setTrackDuration] = useState<number | null>(null);
+  const { user } = useAuth();
 
   const getTrackDuration = (file: File): Promise<number> => {
     return new Promise((resolve) => {
@@ -66,7 +68,7 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
   });
 
   const uploadTrack = async () => {
-    if (!selectedFile || !projectId) return;
+    if (!selectedFile || !projectId || !user) return;
     
     setIsUploading(true);
     setUploadProgress(0);
@@ -74,20 +76,10 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
     try {
       // Upload file to Supabase Storage
       const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `tracks/${projectId}/${fileName}`;
+      const fileName = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${projectId}/${fileName}`;
       
-      // Create a custom upload handler to track progress
-      const xhr = new XMLHttpRequest();
-      
-      xhr.upload.addEventListener('progress', event => {
-        if (event.lengthComputable) {
-          const progress = (event.loaded / event.total) * 100;
-          setUploadProgress(progress);
-        }
-      });
-      
-      // Use the Upload API directly
+      // Upload to the 'audio' bucket
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio')
         .upload(filePath, selectedFile, {
@@ -100,18 +92,18 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
       }
       
       // Get public URL
-      const { data: urlData } = await supabase.storage
+      const { data: urlData } = supabase.storage
         .from('audio')
         .getPublicUrl(filePath);
         
       const publicUrl = urlData?.publicUrl;
       
-      // Save track metadata to database - using the correct field names
+      // Save track metadata to database
       const { data: trackData, error: trackError } = await supabase
         .from('tracks')
         .insert({
           project_id: projectId,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: user.id,
           title: selectedFile.name.split('.')[0],
           file_url: publicUrl,
           duration: trackDuration || 0,
