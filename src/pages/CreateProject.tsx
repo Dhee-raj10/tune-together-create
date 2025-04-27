@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,14 +9,15 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CollaboratorSelector } from "@/components/CollaboratorSelector";
 import { ProfileList } from "@/components/ProfileList";
-import { useProjects } from "@/hooks/useProjects";
-import { toast } from "sonner";
+import { TrackUploader } from "@/components/TrackUploader";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProjectFlow } from "@/hooks/useProjectFlow";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const CreateProject = () => {
   const { mode } = useParams<{ mode: string }>();
   const location = useLocation();
-  const { createProject, isLoading } = useProjects();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [projectName, setProjectName] = useState("");
@@ -26,6 +26,8 @@ const CreateProject = () => {
   const [collaboratorId, setCollaboratorId] = useState<string | null>(null);
   const [showRoleSelector, setShowRoleSelector] = useState(true);
   const [showCollaboratorList, setShowCollaboratorList] = useState(false);
+
+  const { flowState, createInitialProject, completeProjectSetup } = useProjectFlow();
 
   // Check if user is authenticated
   useEffect(() => {
@@ -61,7 +63,6 @@ const CreateProject = () => {
       return;
     }
 
-    // Normalize the mode to match our expected types
     let normalizedMode: 'solo' | 'collaboration' | 'learning';
     if (mode === 'collaborate') {
       normalizedMode = 'collaboration';
@@ -71,19 +72,30 @@ const CreateProject = () => {
       normalizedMode = 'solo';
     }
 
-    const projectData = {
-      title: projectName,
-      description: projectDescription,
-      mode: normalizedMode,
-      // If we have a collaborator ID, we'll add it later in a separate API call
-      collaboratorId: collaboratorId || undefined,
-      selectedRoles: selectedRoles.length > 0 ? selectedRoles : undefined
-    };
+    const projectId = await createInitialProject(projectName, projectDescription, normalizedMode);
+    
+    if (projectId && normalizedMode === 'collaboration' && collaboratorId) {
+      const { error: collabError } = await supabase
+        .from('project_collaborators')
+        .insert({
+          project_id: projectId,
+          user_id: collaboratorId,
+          role: selectedRoles && selectedRoles.length > 0 
+            ? selectedRoles[0] 
+            : 'contributor'
+        });
 
-    const project = await createProject(projectData);
-    if (project) {
-      toast.success("Project created successfully!");
+      if (collabError) {
+        toast.error(`Error setting up collaboration: ${collabError.message}`);
+      } else {
+        toast.success('Collaboration invitation sent!');
+      }
     }
+  };
+
+  const handleUploadComplete = () => {
+    completeProjectSetup();
+    navigate(`/studio/${flowState.projectId}`);
   };
 
   const handleRoleSelect = (roles: string[]) => {
@@ -111,84 +123,100 @@ const CreateProject = () => {
             </p>
           </div>
 
-          {mode === "collaborate" && showRoleSelector && !collaboratorId && (
-            <div className="mb-10">
-              <h2 className="text-2xl font-bold mb-4">What type of musician are you looking for?</h2>
-              <p className="text-muted-foreground mb-6">
-                Select the roles you're seeking to collaborate with on this project.
-              </p>
-              <CollaboratorSelector onSelectRoles={handleRoleSelect} />
-            </div>
-          )}
+          {flowState.step === 'details' && (
+            <>
+              {mode === "collaborate" && showRoleSelector && !collaboratorId && (
+                <div className="mb-10">
+                  <h2 className="text-2xl font-bold mb-4">What type of musician are you looking for?</h2>
+                  <p className="text-muted-foreground mb-6">
+                    Select the roles you're seeking to collaborate with on this project.
+                  </p>
+                  <CollaboratorSelector onSelectRoles={handleRoleSelect} />
+                </div>
+              )}
 
-          {mode === "collaborate" && showCollaboratorList && !collaboratorId && (
-            <div className="mb-10">
-              <h2 className="text-2xl font-bold mb-4">Available Musicians</h2>
-              <p className="text-muted-foreground mb-6">
-                {selectedRoles.length > 0 
-                  ? `Showing musicians with ${selectedRoles.join(', ')} expertise` 
-                  : 'Showing all available musicians'}
-              </p>
-              <ProfileList selectedRoles={selectedRoles} />
-            </div>
-          )}
+              {mode === "collaborate" && showCollaboratorList && !collaboratorId && (
+                <div className="mb-10">
+                  <h2 className="text-2xl font-bold mb-4">Available Musicians</h2>
+                  <p className="text-muted-foreground mb-6">
+                    {selectedRoles.length > 0 
+                      ? `Showing musicians with ${selectedRoles.join(', ')} expertise` 
+                      : 'Showing all available musicians'}
+                  </p>
+                  <ProfileList selectedRoles={selectedRoles} />
+                </div>
+              )}
 
-          {(mode !== "collaborate" || collaboratorId || !showRoleSelector) && (
-            <Card>
-              <CardContent className="pt-6">
-                <form onSubmit={handleSubmit} className="space-y-8">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="project-name">Project Name</Label>
-                      <Input
-                        id="project-name"
-                        placeholder="My Awesome Track"
-                        value={projectName}
-                        onChange={(e) => setProjectName(e.target.value)}
-                        required
-                      />
-                    </div>
+              {(mode !== "collaborate" || collaboratorId || !showRoleSelector) && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="project-name">Project Name</Label>
+                          <Input
+                            id="project-name"
+                            placeholder="My Awesome Track"
+                            value={projectName}
+                            onChange={(e) => setProjectName(e.target.value)}
+                            required
+                          />
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="project-description">Project Description</Label>
-                      <Textarea
-                        id="project-description"
-                        placeholder="Describe your project, style, and what you're aiming to create..."
-                        rows={4}
-                        value={projectDescription}
-                        onChange={(e) => setProjectDescription(e.target.value)}
-                      />
-                    </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="project-description">Project Description</Label>
+                          <Textarea
+                            id="project-description"
+                            placeholder="Describe your project, style, and what you're aiming to create..."
+                            rows={4}
+                            value={projectDescription}
+                            onChange={(e) => setProjectDescription(e.target.value)}
+                          />
+                        </div>
 
-                    {mode === "collaborate" && !collaboratorId && (
-                      <div className="space-y-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            setShowRoleSelector(true);
-                            setShowCollaboratorList(false);
-                          }}
+                        {mode === "collaborate" && !collaboratorId && (
+                          <div className="space-y-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setShowRoleSelector(true);
+                                setShowCollaboratorList(false);
+                              }}
+                            >
+                              Back to Role Selection
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-center">
+                        <Button 
+                          type="submit" 
+                          size="lg" 
+                          className="bg-music-400 hover:bg-music-500 px-8"
                         >
-                          Back to Role Selection
+                          Create Project
                         </Button>
                       </div>
-                    )}
-                  </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
 
-                  <div className="flex justify-center">
-                    <Button 
-                      type="submit" 
-                      size="lg" 
-                      className="bg-music-400 hover:bg-music-500 px-8"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Creating Project...' : 'Create Project'}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
+          {flowState.step === 'upload' && flowState.projectId && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold">Upload Your First Track</h2>
+              <p className="text-muted-foreground">
+                Add your first track to get started with your project.
+              </p>
+              <TrackUploader
+                projectId={flowState.projectId}
+                onUploadComplete={handleUploadComplete}
+              />
+            </div>
           )}
         </div>
       </main>
