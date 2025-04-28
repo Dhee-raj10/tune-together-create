@@ -10,6 +10,7 @@ import { TrackArrangementPanel } from "@/components/studio/TrackArrangementPanel
 import { MixerPanel } from "@/components/studio/MixerPanel";
 import { TrackList } from "@/components/TrackList";
 import { CollaborationRequests } from "@/components/studio/CollaborationRequests";
+import { TrackUploader } from "@/components/TrackUploader";
 
 interface Project {
   id: string;
@@ -29,6 +30,7 @@ const MusicStudio = () => {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showUploader, setShowUploader] = useState(false);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -83,6 +85,11 @@ const MusicStudio = () => {
     }
   };
 
+  const handleTrackUploadComplete = () => {
+    setShowUploader(false);
+    toast.success("Track uploaded and added to your project");
+  };
+
   if (isLoading) {
     return <div className="text-center p-6">Loading studio...</div>;
   }
@@ -103,6 +110,15 @@ const MusicStudio = () => {
       isDeleting={isDeleting}
     >
       {user && <CollaborationRequests />}
+      
+      {showUploader && projectId && (
+        <div className="mb-6">
+          <TrackUploader 
+            projectId={projectId} 
+            onUploadComplete={handleTrackUploadComplete} 
+          />
+        </div>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
         <InstrumentsPanel />

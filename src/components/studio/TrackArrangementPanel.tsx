@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Play, Pause, Stop, Repeat, Music, Plus } from "lucide-react";
+import { Play, Square as StopIcon, Repeat, Music, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export const TrackArrangementPanel = () => {
@@ -197,7 +197,7 @@ export const TrackArrangementPanel = () => {
               onClick={handleStop}
               className="flex items-center gap-1"
             >
-              <Stop size={14} />
+              <StopIcon size={14} />
               Stop
             </Button>
           ) : (
