@@ -79,12 +79,16 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
       const fileName = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `${projectId}/${fileName}`;
       
-      // Upload to the 'audio' bucket
+      // Upload to the 'audio' bucket with progress tracking
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio')
         .upload(filePath, selectedFile, {
           cacheControl: '3600',
           upsert: false,
+          onUploadProgress: (progress) => {
+            const percent = Math.round((progress.loaded / progress.total) * 100);
+            setUploadProgress(percent);
+          }
         });
 
       if (uploadError) {
@@ -190,7 +194,10 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
               <Button variant="outline" onClick={cancelUpload}>
                 Cancel
               </Button>
-              <Button onClick={uploadTrack}>
+              <Button 
+                onClick={uploadTrack}
+                className="bg-music-400 hover:bg-music-500"
+              >
                 Upload Track
               </Button>
             </div>

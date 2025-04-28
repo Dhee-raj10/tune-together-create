@@ -9,6 +9,47 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      collaboration_requests: {
+        Row: {
+          created_at: string | null
+          from_user_id: string | null
+          id: string
+          message: string | null
+          project_id: string | null
+          status: string | null
+          to_user_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          from_user_id?: string | null
+          id?: string
+          message?: string | null
+          project_id?: string | null
+          status?: string | null
+          to_user_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          from_user_id?: string | null
+          id?: string
+          message?: string | null
+          project_id?: string | null
+          status?: string | null
+          to_user_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaboration_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_categories: {
         Row: {
           created_at: string

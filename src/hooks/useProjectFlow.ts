@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface ProjectFlowState {
-  step: 'details' | 'upload' | 'complete';
+  step: 'details' | 'upload' | 'integration' | 'complete';
   projectId: string | null;
 }
 
@@ -13,12 +13,15 @@ export const useProjectFlow = () => {
     step: 'details',
     projectId: null,
   });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const createInitialProject = async (title: string, description: string | null, mode: 'solo' | 'collaboration' | 'learning') => {
     try {
+      setIsProcessing(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('You must be logged in to create a project');
+        setIsProcessing(false);
         return null;
       }
 
@@ -45,7 +48,13 @@ export const useProjectFlow = () => {
       console.error('Error creating project:', error);
       toast.error('Failed to create project');
       return null;
+    } finally {
+      setIsProcessing(false);
     }
+  };
+
+  const advanceToIntegration = () => {
+    setFlowState(prev => ({ ...prev, step: 'integration' }));
   };
 
   const completeProjectSetup = () => {
@@ -55,7 +64,9 @@ export const useProjectFlow = () => {
 
   return {
     flowState,
+    isProcessing,
     createInitialProject,
+    advanceToIntegration,
     completeProjectSetup
   };
 };

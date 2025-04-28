@@ -9,6 +9,7 @@ import { InstrumentsPanel } from "@/components/studio/InstrumentsPanel";
 import { TrackArrangementPanel } from "@/components/studio/TrackArrangementPanel";
 import { MixerPanel } from "@/components/studio/MixerPanel";
 import { TrackList } from "@/components/TrackList";
+import { CollaborationRequests } from "@/components/studio/CollaborationRequests";
 
 interface Project {
   id: string;
@@ -101,7 +102,9 @@ const MusicStudio = () => {
       onDelete={handleDeleteProject}
       isDeleting={isDeleting}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {user && <CollaborationRequests />}
+      
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
         <InstrumentsPanel />
         <TrackArrangementPanel />
         <MixerPanel />

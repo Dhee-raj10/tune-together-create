@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProjectFlow } from "@/hooks/useProjectFlow";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { TrackPlayer } from "@/components/TrackPlayer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 
 const CreateProject = () => {
   const { mode } = useParams<{ mode: string }>();
@@ -26,8 +29,17 @@ const CreateProject = () => {
   const [collaboratorId, setCollaboratorId] = useState<string | null>(null);
   const [showRoleSelector, setShowRoleSelector] = useState(true);
   const [showCollaboratorList, setShowCollaboratorList] = useState(false);
+  const [collaborationMessage, setCollaborationMessage] = useState("");
+  const [showCollabDialog, setShowCollabDialog] = useState(false);
+  const [uploadedTrack, setUploadedTrack] = useState<any>(null);
 
-  const { flowState, createInitialProject, completeProjectSetup } = useProjectFlow();
+  const { 
+    flowState, 
+    isProcessing, 
+    createInitialProject, 
+    advanceToIntegration, 
+    completeProjectSetup 
+  } = useProjectFlow();
 
   // Check if user is authenticated
   useEffect(() => {
@@ -45,9 +57,12 @@ const CreateProject = () => {
       setCollaboratorId(collaboratorParam);
       setShowRoleSelector(false);
       setShowCollaboratorList(false);
-      toast.info("Collaboration setup with a selected user");
+      // Show collaboration dialog on collaborator selection
+      if (mode === 'collaborate') {
+        setShowCollabDialog(true);
+      }
     }
-  }, [location.search]);
+  }, [location.search, mode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,26 +89,42 @@ const CreateProject = () => {
 
     const projectId = await createInitialProject(projectName, projectDescription, normalizedMode);
     
-    if (projectId && normalizedMode === 'collaboration' && collaboratorId) {
-      const { error: collabError } = await supabase
-        .from('project_collaborators')
+    // For collaboration mode, only create the initial project structure
+    // Actual collaboration setup happens when the collab request is accepted
+  };
+
+  const handleSendCollaborationRequest = async () => {
+    if (!flowState.projectId || !collaboratorId || !user) {
+      toast.error('Cannot send collaboration request');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('collaboration_requests')
         .insert({
-          project_id: projectId,
-          user_id: collaboratorId,
-          role: selectedRoles && selectedRoles.length > 0 
-            ? selectedRoles[0] 
-            : 'contributor'
+          project_id: flowState.projectId,
+          from_user_id: user.id,
+          to_user_id: collaboratorId,
+          message: collaborationMessage
         });
 
-      if (collabError) {
-        toast.error(`Error setting up collaboration: ${collabError.message}`);
-      } else {
-        toast.success('Collaboration invitation sent!');
-      }
+      if (error) throw error;
+      
+      toast.success('Collaboration request sent!');
+      setShowCollabDialog(false);
+    } catch (error) {
+      console.error('Error sending collaboration request:', error);
+      toast.error('Failed to send collaboration request');
     }
   };
 
-  const handleUploadComplete = () => {
+  const handleUploadComplete = (trackData: any) => {
+    setUploadedTrack(trackData);
+    advanceToIntegration();
+  };
+
+  const handleFinalizeProject = () => {
     completeProjectSetup();
     navigate(`/studio/${flowState.projectId}`);
   };
@@ -195,8 +226,9 @@ const CreateProject = () => {
                           type="submit" 
                           size="lg" 
                           className="bg-music-400 hover:bg-music-500 px-8"
+                          disabled={isProcessing}
                         >
-                          Create Project
+                          {isProcessing ? "Creating..." : "Create Project"}
                         </Button>
                       </div>
                     </form>
@@ -218,10 +250,73 @@ const CreateProject = () => {
               />
             </div>
           )}
+
+          {flowState.step === 'integration' && flowState.projectId && uploadedTrack && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold">Test Your Track</h2>
+              <p className="text-muted-foreground">
+                Make sure your track sounds good before finalizing your project.
+              </p>
+              <TrackPlayer
+                trackUrl={uploadedTrack.file_url}
+                title={uploadedTrack.title}
+                duration={uploadedTrack.duration}
+              />
+              <div className="flex justify-center mt-6">
+                <Button 
+                  onClick={handleFinalizeProject}
+                  size="lg" 
+                  className="bg-music-400 hover:bg-music-500 px-8"
+                >
+                  Finalize Project
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
       <Footer />
       <div className="absolute inset-0 -z-10 h-full w-full bg-white [background:radial-gradient(125%_125%_at_50%_10%,#fff_40%,#e5ddff_100%)]" />
+
+      {/* Collaboration Request Dialog */}
+      <Dialog open={showCollabDialog} onOpenChange={setShowCollabDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Collaboration Request</DialogTitle>
+            <DialogDescription>
+              Send a message to the musician explaining what you'd like to collaborate on.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="collab-message">Message</Label>
+              <Textarea
+                id="collab-message"
+                placeholder="Hi, I'd love to collaborate with you on this track. I'm looking for..."
+                rows={4}
+                value={collaborationMessage}
+                onChange={(e) => setCollaborationMessage(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowCollabDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendCollaborationRequest}
+              disabled={!collaborationMessage.trim() || !flowState.projectId}
+              className="bg-music-400 hover:bg-music-500"
+            >
+              Send Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
