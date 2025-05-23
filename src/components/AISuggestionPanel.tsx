@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Music, Play, Check, X, Loader2 } from 'lucide-react';
+import { Music, Check, X, Loader2 } from 'lucide-react';
 import { TrackPlayer } from './TrackPlayer';
 
 interface AISuggestion {
@@ -17,6 +17,7 @@ interface AISuggestion {
   style: string;
   mode: string;
   bars: number;
+  duration?: number;
 }
 
 interface AISuggestionPanelProps {
@@ -32,6 +33,7 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
   const [bars, setBars] = useState('4');
   const [mode, setMode] = useState('');
   const [textPrompt, setTextPrompt] = useState('');
+  const [isAccepting, setIsAccepting] = useState(false);
 
   const instruments = [
     { value: 'piano', label: '🎹 Piano' },
@@ -72,7 +74,10 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
     }
 
     setIsGenerating(true);
+    setCurrentSuggestion(null);
+    
     try {
+      console.log('Calling AI suggestion function...');
       const { data, error } = await supabase.functions.invoke('generate-music-ai', {
         body: {
           projectId,
@@ -84,13 +89,22 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
 
-      setCurrentSuggestion(data.suggestion);
-      toast.success('AI suggestion generated!');
+      console.log('AI suggestion response:', data);
+      
+      if (data && data.suggestion) {
+        setCurrentSuggestion(data.suggestion);
+        toast.success('🎵 AI suggestion generated successfully!');
+      } else {
+        throw new Error('Invalid response from AI service');
+      }
     } catch (error) {
       console.error('Error generating AI suggestion:', error);
-      toast.error('Failed to generate AI suggestion');
+      toast.error('Failed to generate AI suggestion. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -99,23 +113,56 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
   const handleAcceptSuggestion = async () => {
     if (!currentSuggestion) return;
 
+    setIsAccepting(true);
     try {
-      const { error } = await supabase.from('tracks').insert({
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('You must be logged in to accept suggestions');
+        return;
+      }
+
+      // Create a more descriptive title
+      const suggestionTitle = `AI ${currentSuggestion.title}`;
+      
+      console.log('Adding AI suggestion to tracks:', {
         project_id: projectId,
-        title: `AI Suggestion: ${currentSuggestion.title}`,
+        title: suggestionTitle,
         file_url: currentSuggestion.audioUrl,
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-        file_type: 'audio/mp3'
+        user_id: user.id,
+        file_type: 'audio/wav',
+        duration: currentSuggestion.duration || (currentSuggestion.bars * 2)
       });
 
-      if (error) throw error;
+      const { error } = await supabase.from('tracks').insert({
+        project_id: projectId,
+        title: suggestionTitle,
+        file_url: currentSuggestion.audioUrl,
+        user_id: user.id,
+        file_type: 'audio/wav',
+        duration: currentSuggestion.duration || (currentSuggestion.bars * 2)
+      });
 
-      toast.success('AI suggestion added to your project!');
+      if (error) {
+        console.error('Error adding suggestion to tracks:', error);
+        throw error;
+      }
+
+      toast.success('🎵 AI suggestion added to your project!');
       setCurrentSuggestion(null);
       onSuggestionAccepted();
+      
+      // Reset form
+      setInstrument('');
+      setStyle('');
+      setMode('');
+      setBars('4');
+      setTextPrompt('');
+      
     } catch (error) {
       console.error('Error accepting suggestion:', error);
       toast.error('Failed to add suggestion to project');
+    } finally {
+      setIsAccepting(false);
     }
   };
 
@@ -222,7 +269,7 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
         {isGenerating ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Generating...
+            Generating AI Suggestion...
           </>
         ) : (
           <>
@@ -236,29 +283,41 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
       {currentSuggestion && (
         <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium">AI Generated Suggestion</h4>
+            <h4 className="font-medium">🎵 AI Generated Suggestion</h4>
             <div className="text-sm text-muted-foreground">
-              AI Suggestion by MusicLM
+              {currentSuggestion.bars} bars • {currentSuggestion.instrument} • {currentSuggestion.style}
             </div>
           </div>
 
           <TrackPlayer
             trackUrl={currentSuggestion.audioUrl}
             title={currentSuggestion.title}
+            duration={currentSuggestion.duration}
           />
 
           <div className="flex gap-2">
             <Button 
               onClick={handleAcceptSuggestion}
+              disabled={isAccepting}
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
-              <Check className="h-4 w-4 mr-2" />
-              ✔️ Use in Track
+              {isAccepting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  ✔️ Use in Project
+                </>
+              )}
             </Button>
             <Button 
               onClick={handleDiscardSuggestion}
               variant="outline"
               className="flex-1"
+              disabled={isAccepting}
             >
               <X className="h-4 w-4 mr-2" />
               ❌ Discard

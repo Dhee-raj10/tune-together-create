@@ -56,10 +56,6 @@ const CreateProject = () => {
       setCollaboratorId(collaboratorParam);
       setShowRoleSelector(false);
       setShowCollaboratorList(false);
-      // Show collaboration dialog on collaborator selection
-      if (mode === 'collaborate') {
-        setShowCollabDialog(true);
-      }
     }
   }, [location.search, mode]);
 
@@ -88,9 +84,12 @@ const CreateProject = () => {
 
     const projectId = await createInitialProject(projectName, projectDescription, normalizedMode);
     
-    // For collaboration mode with a specific collaborator, send the request immediately
+    // For collaboration mode with a specific collaborator, show dialog immediately
     if (projectId && mode === 'collaborate' && collaboratorId) {
       setShowCollabDialog(true);
+    } else if (projectId && mode !== 'collaborate') {
+      // For non-collaboration modes, navigate directly to studio
+      navigate(`/studio/${projectId}`);
     }
   };
 
