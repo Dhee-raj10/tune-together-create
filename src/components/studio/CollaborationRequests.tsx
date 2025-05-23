@@ -4,11 +4,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Check, X } from 'lucide-react';
+import { Check, X, Music } from 'lucide-react';
+
+interface CollaborationRequest {
+  id: string;
+  message: string;
+  status: string;
+  created_at: string;
+  project_id: string;
+  projects: {
+    id: string;
+    title: string;
+  };
+  sender: {
+    id: string;
+    full_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  };
+}
 
 export const CollaborationRequests = () => {
   const { user } = useAuth();
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<CollaborationRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,8 +41,19 @@ export const CollaborationRequests = () => {
             message,
             status,
             created_at,
-            projects:project_id (title),
-            sender:from_user_id (id, full_name, avatar_url)
+            project_id,
+            projects:project_id (
+              id,
+              title
+            ),
+            sender:from_user_id (
+              id,
+              profiles!inner (
+                full_name,
+                username,
+                avatar_url
+              )
+            )
           `)
           .eq('to_user_id', user.id)
           .eq('status', 'pending')
@@ -32,7 +61,23 @@ export const CollaborationRequests = () => {
 
         if (error) throw error;
         
-        setRequests(data || []);
+        // Transform the data to match our interface
+        const transformedData = data?.map(req => ({
+          id: req.id,
+          message: req.message,
+          status: req.status,
+          created_at: req.created_at,
+          project_id: req.project_id,
+          projects: req.projects,
+          sender: {
+            id: req.sender.id,
+            full_name: req.sender.profiles?.full_name || null,
+            username: req.sender.profiles?.username || null,
+            avatar_url: req.sender.profiles?.avatar_url || null
+          }
+        })) || [];
+        
+        setRequests(transformedData);
       } catch (error) {
         console.error('Error fetching collaboration requests:', error);
       } finally {
@@ -81,7 +126,7 @@ export const CollaborationRequests = () => {
           const { error: collabError } = await supabase
             .from('project_collaborators')
             .insert({
-              project_id: request.projects.id,
+              project_id: request.project_id,
               user_id: user.id,
               role: 'contributor'
             });
@@ -112,17 +157,20 @@ export const CollaborationRequests = () => {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Collaboration Requests</h3>
+      <h3 className="text-lg font-semibold flex items-center gap-2">
+        <Music className="h-5 w-5" />
+        Collaboration Requests
+      </h3>
       <div className="space-y-3">
         {requests.map((request) => (
           <div key={request.id} className="bg-white p-4 rounded-lg shadow-sm border">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-music-100 flex items-center justify-center">
-                {request.sender?.full_name?.charAt(0) || 'U'}
+                {request.sender?.full_name?.charAt(0) || request.sender?.username?.charAt(0) || 'U'}
               </div>
               <div>
                 <p className="font-medium">
-                  {request.sender?.full_name || 'Unknown User'}
+                  {request.sender?.full_name || request.sender?.username || 'Unknown User'}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Project: {request.projects?.title}

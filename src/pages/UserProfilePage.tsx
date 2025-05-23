@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { CollaborationRequests } from '@/components/studio/CollaborationRequests';
 import { PlusIcon, Settings, Music, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -114,6 +115,15 @@ const UserProfilePage = () => {
           {/* User Profile Section */}
           <div className="lg:col-span-4 space-y-6">
             <UserProfile userId={profileUserId} />
+            
+            {/* Show collaboration requests only for own profile */}
+            {isOwnProfile && (
+              <Card>
+                <CardContent className="pt-6">
+                  <CollaborationRequests />
+                </CardContent>
+              </Card>
+            )}
             
             {isOwnProfile && (
               <Card>

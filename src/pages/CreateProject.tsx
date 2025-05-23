@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -89,8 +88,10 @@ const CreateProject = () => {
 
     const projectId = await createInitialProject(projectName, projectDescription, normalizedMode);
     
-    // For collaboration mode, only create the initial project structure
-    // Actual collaboration setup happens when the collab request is accepted
+    // For collaboration mode with a specific collaborator, send the request immediately
+    if (projectId && mode === 'collaborate' && collaboratorId) {
+      setShowCollabDialog(true);
+    }
   };
 
   const handleSendCollaborationRequest = async () => {
@@ -106,13 +107,16 @@ const CreateProject = () => {
           project_id: flowState.projectId,
           from_user_id: user.id,
           to_user_id: collaboratorId,
-          message: collaborationMessage
+          message: collaborationMessage || `Hi! I'd like to collaborate with you on my project "${projectName}". Would you be interested in working together?`
         });
 
       if (error) throw error;
       
       toast.success('Collaboration request sent!');
       setShowCollabDialog(false);
+      
+      // Navigate to the project studio
+      navigate(`/studio/${flowState.projectId}`);
     } catch (error) {
       console.error('Error sending collaboration request:', error);
       toast.error('Failed to send collaboration request');
@@ -292,7 +296,7 @@ const CreateProject = () => {
               <Label htmlFor="collab-message">Message</Label>
               <Textarea
                 id="collab-message"
-                placeholder="Hi, I'd love to collaborate with you on this track. I'm looking for..."
+                placeholder={`Hi! I'd like to collaborate with you on my project "${projectName}". Would you be interested in working together?`}
                 rows={4}
                 value={collaborationMessage}
                 onChange={(e) => setCollaborationMessage(e.target.value)}
@@ -309,7 +313,7 @@ const CreateProject = () => {
             </Button>
             <Button 
               onClick={handleSendCollaborationRequest}
-              disabled={!collaborationMessage.trim() || !flowState.projectId}
+              disabled={!flowState.projectId}
               className="bg-music-400 hover:bg-music-500"
             >
               Send Request
