@@ -12,6 +12,7 @@ interface CollaborationRequest {
   status: string;
   created_at: string;
   project_id: string;
+  from_user_id: string;
   projects: {
     id: string;
     title: string;
@@ -34,7 +35,8 @@ export const CollaborationRequests = () => {
 
     const fetchRequests = async () => {
       try {
-        const { data, error } = await supabase
+        // First, fetch collaboration requests with project info
+        const { data: requestsData, error: requestsError } = await supabase
           .from('collaboration_requests')
           .select(`
             id,
@@ -42,44 +44,59 @@ export const CollaborationRequests = () => {
             status,
             created_at,
             project_id,
+            from_user_id,
             projects:project_id (
               id,
               title
-            ),
-            sender:from_user_id (
-              id,
-              profiles!inner (
-                full_name,
-                username,
-                avatar_url
-              )
             )
           `)
           .eq('to_user_id', user.id)
           .eq('status', 'pending')
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        
-        // Transform the data to match our interface
-        const transformedData = data?.map(req => ({
-          id: req.id,
-          message: req.message,
-          status: req.status,
-          created_at: req.created_at,
-          project_id: req.project_id,
-          projects: req.projects,
-          sender: {
-            id: req.sender.id,
-            full_name: req.sender.profiles?.full_name || null,
-            username: req.sender.profiles?.username || null,
-            avatar_url: req.sender.profiles?.avatar_url || null
-          }
-        })) || [];
+        if (requestsError) throw requestsError;
+
+        if (!requestsData || requestsData.length === 0) {
+          setRequests([]);
+          return;
+        }
+
+        // Get unique sender IDs
+        const senderIds = [...new Set(requestsData.map(req => req.from_user_id))];
+
+        // Fetch sender profiles
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, avatar_url')
+          .in('id', senderIds);
+
+        if (profilesError) throw profilesError;
+
+        // Combine requests with sender information
+        const transformedData: CollaborationRequest[] = requestsData.map(req => {
+          const senderProfile = profilesData?.find(p => p.id === req.from_user_id);
+          
+          return {
+            id: req.id,
+            message: req.message,
+            status: req.status,
+            created_at: req.created_at,
+            project_id: req.project_id,
+            from_user_id: req.from_user_id,
+            projects: req.projects,
+            sender: {
+              id: req.from_user_id,
+              full_name: senderProfile?.full_name || null,
+              username: senderProfile?.username || null,
+              avatar_url: senderProfile?.avatar_url || null
+            }
+          };
+        });
         
         setRequests(transformedData);
       } catch (error) {
         console.error('Error fetching collaboration requests:', error);
+        toast.error('Failed to load collaboration requests');
       } finally {
         setLoading(false);
       }
