@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +10,7 @@ import { MixerPanel } from "@/components/studio/MixerPanel";
 import { TrackList } from "@/components/TrackList";
 import { CollaborationRequests } from "@/components/studio/CollaborationRequests";
 import { TrackUploader } from "@/components/TrackUploader";
+import { AISuggestionPanel } from "@/components/AISuggestionPanel";
 
 interface Project {
   id: string;
@@ -90,6 +90,11 @@ const MusicStudio = () => {
     toast.success("Track uploaded and added to your project");
   };
 
+  const handleAISuggestionAccepted = () => {
+    // Refresh tracks when AI suggestion is accepted
+    toast.success("AI suggestion integrated into your project");
+  };
+
   if (isLoading) {
     return <div className="text-center p-6">Loading studio...</div>;
   }
@@ -110,6 +115,16 @@ const MusicStudio = () => {
       isDeleting={isDeleting}
     >
       {user && <CollaborationRequests />}
+      
+      {/* AI Suggestion Panel */}
+      {user && projectId && (
+        <div className="mb-6">
+          <AISuggestionPanel 
+            projectId={projectId}
+            onSuggestionAccepted={handleAISuggestionAccepted}
+          />
+        </div>
+      )}
       
       {showUploader && projectId && (
         <div className="mb-6">
