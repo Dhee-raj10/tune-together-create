@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +33,31 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
   const [mode, setMode] = useState('');
   const [textPrompt, setTextPrompt] = useState('');
   const [isAccepting, setIsAccepting] = useState(false);
+  const [hasExistingTracks, setHasExistingTracks] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkExistingTracks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tracks')
+          .select('id')
+          .eq('project_id', projectId);
+
+        if (error) throw error;
+        
+        setHasExistingTracks(data && data.length > 0);
+      } catch (error) {
+        console.error('Error checking tracks:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (projectId) {
+      checkExistingTracks();
+    }
+  }, [projectId]);
 
   const instruments = [
     { value: 'piano', label: '🎹 Piano' },
@@ -121,7 +145,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
         return;
       }
 
-      // Create a more descriptive title
       const suggestionTitle = `AI ${currentSuggestion.title}`;
       
       console.log('Adding AI suggestion to tracks:', {
@@ -150,8 +173,8 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
       toast.success('🎵 AI suggestion added to your project!');
       setCurrentSuggestion(null);
       onSuggestionAccepted();
+      setHasExistingTracks(true);
       
-      // Reset form
       setInstrument('');
       setStyle('');
       setMode('');
@@ -171,6 +194,26 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
     toast.info('Suggestion discarded');
   };
 
+  if (loading) {
+    return <div className="text-center p-4">Loading...</div>;
+  }
+
+  if (!hasExistingTracks) {
+    return (
+      <div className="space-y-4 p-4 border rounded-lg bg-card">
+        <div className="flex items-center gap-2">
+          <Music className="h-5 w-5 text-music-400" />
+          <h3 className="text-lg font-semibold">🎵 AI Music Suggestions</h3>
+        </div>
+        <div className="text-center py-8 text-muted-foreground">
+          <Music className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="text-lg font-medium mb-2">Upload a track first</p>
+          <p className="text-sm">AI suggestions work better when there's existing music to build upon.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-4 border rounded-lg bg-card">
       <div className="flex items-center gap-2">
@@ -178,7 +221,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
         <h3 className="text-lg font-semibold">🎵 AI Music Suggestions</h3>
       </div>
 
-      {/* Configuration Panel */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-3">
           <div>
@@ -249,7 +291,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
         </div>
       </div>
 
-      {/* Text Prompt */}
       <div>
         <Label>💭 Text Prompt (Optional)</Label>
         <Textarea
@@ -260,7 +301,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
         />
       </div>
 
-      {/* Generate Button */}
       <Button 
         onClick={handleGenerateSuggestion}
         disabled={isGenerating || !instrument || !style || !mode}
@@ -279,7 +319,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
         )}
       </Button>
 
-      {/* Current Suggestion Display */}
       {currentSuggestion && (
         <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
           <div className="flex items-center justify-between">

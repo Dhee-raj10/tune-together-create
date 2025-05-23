@@ -15,7 +15,7 @@ import { useProjectFlow } from "@/hooks/useProjectFlow";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { TrackPlayer } from "@/components/TrackPlayer";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 const CreateProject = () => {
   const { mode } = useParams<{ mode: string }>();
@@ -31,6 +31,7 @@ const CreateProject = () => {
   const [collaborationMessage, setCollaborationMessage] = useState("");
   const [showCollabDialog, setShowCollabDialog] = useState(false);
   const [uploadedTrack, setUploadedTrack] = useState<any>(null);
+  const [collaborationRequestSent, setCollaborationRequestSent] = useState(false);
 
   const { 
     flowState, 
@@ -40,7 +41,6 @@ const CreateProject = () => {
     completeProjectSetup 
   } = useProjectFlow();
 
-  // Check if user is authenticated
   useEffect(() => {
     if (!user) {
       toast.error("You must be logged in to create a project");
@@ -48,7 +48,6 @@ const CreateProject = () => {
     }
   }, [user, navigate, location]);
 
-  // Parse URL params for collaborator ID
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const collaboratorParam = searchParams.get('collaborator');
@@ -111,11 +110,10 @@ const CreateProject = () => {
 
       if (error) throw error;
       
-      toast.success('Collaboration request sent!');
+      toast.success('Collaboration request sent! Waiting for acceptance...');
       setShowCollabDialog(false);
+      setCollaborationRequestSent(true);
       
-      // Navigate to the project studio
-      navigate(`/studio/${flowState.projectId}`);
     } catch (error) {
       console.error('Error sending collaboration request:', error);
       toast.error('Failed to send collaboration request');
@@ -157,131 +155,159 @@ const CreateProject = () => {
             </p>
           </div>
 
-          {flowState.step === 'details' && (
+          {collaborationRequestSent && (
+            <Card className="mb-6">
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <div className="animate-pulse mb-4">
+                    <div className="w-16 h-16 bg-music-100 rounded-full mx-auto flex items-center justify-center">
+                      <span className="text-2xl">⏳</span>
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Waiting for Collaboration Response</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Your collaboration request has been sent. Once the other user accepts, 
+                    you'll both be able to work on the project together.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate(`/studio/${flowState.projectId}`)}
+                  >
+                    Go to Project (Preview Mode)
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!collaborationRequestSent && (
             <>
-              {mode === "collaborate" && showRoleSelector && !collaboratorId && (
-                <div className="mb-10">
-                  <h2 className="text-2xl font-bold mb-4">What type of musician are you looking for?</h2>
-                  <p className="text-muted-foreground mb-6">
-                    Select the roles you're seeking to collaborate with on this project.
-                  </p>
-                  <CollaboratorSelector onSelectRoles={handleRoleSelect} />
-                </div>
-              )}
+              {flowState.step === 'details' && (
+                <>
+                  {mode === "collaborate" && showRoleSelector && !collaboratorId && (
+                    <div className="mb-10">
+                      <h2 className="text-2xl font-bold mb-4">What type of musician are you looking for?</h2>
+                      <p className="text-muted-foreground mb-6">
+                        Select the roles you're seeking to collaborate with on this project.
+                      </p>
+                      <CollaboratorSelector onSelectRoles={handleRoleSelect} />
+                    </div>
+                  )}
 
-              {mode === "collaborate" && showCollaboratorList && !collaboratorId && (
-                <div className="mb-10">
-                  <h2 className="text-2xl font-bold mb-4">Available Musicians</h2>
-                  <p className="text-muted-foreground mb-6">
-                    {selectedRoles.length > 0 
-                      ? `Showing musicians with ${selectedRoles.join(', ')} expertise` 
-                      : 'Showing all available musicians'}
-                  </p>
-                  <ProfileList selectedRoles={selectedRoles} />
-                </div>
-              )}
+                  {mode === "collaborate" && showCollaboratorList && !collaboratorId && (
+                    <div className="mb-10">
+                      <h2 className="text-2xl font-bold mb-4">Available Musicians</h2>
+                      <p className="text-muted-foreground mb-6">
+                        {selectedRoles.length > 0 
+                          ? `Showing musicians with ${selectedRoles.join(', ')} expertise` 
+                          : 'Showing all available musicians'}
+                      </p>
+                      <ProfileList selectedRoles={selectedRoles} />
+                    </div>
+                  )}
 
-              {(mode !== "collaborate" || collaboratorId || !showRoleSelector) && (
-                <Card>
-                  <CardContent className="pt-6">
-                    <form onSubmit={handleSubmit} className="space-y-8">
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="project-name">Project Name</Label>
-                          <Input
-                            id="project-name"
-                            placeholder="My Awesome Track"
-                            value={projectName}
-                            onChange={(e) => setProjectName(e.target.value)}
-                            required
-                          />
-                        </div>
+                  {(mode !== "collaborate" || collaboratorId || !showRoleSelector) && (
+                    <Card>
+                      <CardContent className="pt-6">
+                        <form onSubmit={handleSubmit} className="space-y-8">
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="project-name">Project Name</Label>
+                              <Input
+                                id="project-name"
+                                placeholder="My Awesome Track"
+                                value={projectName}
+                                onChange={(e) => setProjectName(e.target.value)}
+                                required
+                              />
+                            </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="project-description">Project Description</Label>
-                          <Textarea
-                            id="project-description"
-                            placeholder="Describe your project, style, and what you're aiming to create..."
-                            rows={4}
-                            value={projectDescription}
-                            onChange={(e) => setProjectDescription(e.target.value)}
-                          />
-                        </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="project-description">Project Description</Label>
+                              <Textarea
+                                id="project-description"
+                                placeholder="Describe your project, style, and what you're aiming to create..."
+                                rows={4}
+                                value={projectDescription}
+                                onChange={(e) => setProjectDescription(e.target.value)}
+                              />
+                            </div>
 
-                        {mode === "collaborate" && !collaboratorId && (
-                          <div className="space-y-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                setShowRoleSelector(true);
-                                setShowCollaboratorList(false);
-                              }}
+                            {mode === "collaborate" && !collaboratorId && (
+                              <div className="space-y-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setShowRoleSelector(true);
+                                    setShowCollaboratorList(false);
+                                  }}
+                                >
+                                  Back to Role Selection
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex justify-center">
+                            <Button 
+                              type="submit" 
+                              size="lg" 
+                              className="bg-music-400 hover:bg-music-500 px-8"
+                              disabled={isProcessing}
                             >
-                              Back to Role Selection
+                              {isProcessing ? "Creating..." : "Create Project"}
                             </Button>
                           </div>
-                        )}
-                      </div>
+                        </form>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
 
-                      <div className="flex justify-center">
-                        <Button 
-                          type="submit" 
-                          size="lg" 
-                          className="bg-music-400 hover:bg-music-500 px-8"
-                          disabled={isProcessing}
-                        >
-                          {isProcessing ? "Creating..." : "Create Project"}
-                        </Button>
-                      </div>
-                    </form>
-                  </CardContent>
-                </Card>
+              {flowState.step === 'upload' && flowState.projectId && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold">Upload Your First Track</h2>
+                  <p className="text-muted-foreground">
+                    Add your first track to get started with your project.
+                  </p>
+                  <TrackUploader
+                    projectId={flowState.projectId}
+                    onUploadComplete={handleUploadComplete}
+                  />
+                </div>
+              )}
+
+              {flowState.step === 'integration' && flowState.projectId && uploadedTrack && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold">Test Your Track</h2>
+                  <p className="text-muted-foreground">
+                    Make sure your track sounds good before finalizing your project.
+                  </p>
+                  <TrackPlayer
+                    trackUrl={uploadedTrack.file_url}
+                    title={uploadedTrack.title}
+                    duration={uploadedTrack.duration}
+                  />
+                  <div className="flex justify-center mt-6">
+                    <Button 
+                      onClick={handleFinalizeProject}
+                      size="lg" 
+                      className="bg-music-400 hover:bg-music-500 px-8"
+                    >
+                      Finalize Project
+                    </Button>
+                  </div>
+                </div>
               )}
             </>
-          )}
-
-          {flowState.step === 'upload' && flowState.projectId && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold">Upload Your First Track</h2>
-              <p className="text-muted-foreground">
-                Add your first track to get started with your project.
-              </p>
-              <TrackUploader
-                projectId={flowState.projectId}
-                onUploadComplete={handleUploadComplete}
-              />
-            </div>
-          )}
-
-          {flowState.step === 'integration' && flowState.projectId && uploadedTrack && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold">Test Your Track</h2>
-              <p className="text-muted-foreground">
-                Make sure your track sounds good before finalizing your project.
-              </p>
-              <TrackPlayer
-                trackUrl={uploadedTrack.file_url}
-                title={uploadedTrack.title}
-                duration={uploadedTrack.duration}
-              />
-              <div className="flex justify-center mt-6">
-                <Button 
-                  onClick={handleFinalizeProject}
-                  size="lg" 
-                  className="bg-music-400 hover:bg-music-500 px-8"
-                >
-                  Finalize Project
-                </Button>
-              </div>
-            </div>
           )}
         </div>
       </main>
       <Footer />
       <div className="absolute inset-0 -z-10 h-full w-full bg-white [background:radial-gradient(125%_125%_at_50%_10%,#fff_40%,#e5ddff_100%)]" />
 
-      {/* Collaboration Request Dialog */}
       <Dialog open={showCollabDialog} onOpenChange={setShowCollabDialog}>
         <DialogContent>
           <DialogHeader>
