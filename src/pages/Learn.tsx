@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { Badge } from "@/components/ui/badge";
-import { Bookmark, GraduationCap } from "lucide-react";
+import { Bookmark, User } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +38,19 @@ const Learn = () => {
           category:learning_categories(name)
         `)
         .order('created_at');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: userProgress } = useQuery({
+    queryKey: ['user-progress', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_learning_progress')
+        .select('*')
+        .eq('user_id', user.id);
       if (error) throw error;
       return data;
     },
@@ -103,7 +116,7 @@ const Learn = () => {
                             <div className="space-y-4">
                               <div className="flex items-center justify-between text-sm">
                                 <div className="flex items-center gap-1">
-                                  <GraduationCap className="h-4 w-4" />
+                                  <User className="h-4 w-4" />
                                   <span>Progress</span>
                                 </div>
                                 <span>0%</span>
@@ -123,6 +136,49 @@ const Learn = () => {
                 </section>
               ))}
             </TabsContent>
+
+            {['beginner', 'intermediate', 'advanced'].map((level) => (
+              <TabsContent key={level} value={level} className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {modules
+                    ?.filter(module => module.difficulty_level === level)
+                    .map((module) => (
+                      <Card key={module.id} className="hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                          <div className="flex justify-between items-start">
+                            <CardTitle className="text-lg">{module.title}</CardTitle>
+                            <Badge variant={
+                              module.difficulty_level === 'beginner' ? 'secondary' :
+                              module.difficulty_level === 'intermediate' ? 'default' : 'destructive'
+                            }>
+                              {module.difficulty_level}
+                            </Badge>
+                          </div>
+                          <CardDescription>{module.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-1">
+                                <User className="h-4 w-4" />
+                                <span>Progress</span>
+                              </div>
+                              <span>0%</span>
+                            </div>
+                            <Progress value={0} className="h-2" />
+                            <Button 
+                              className="w-full" 
+                              onClick={() => navigate(`/learn/module/${module.id}`)}
+                            >
+                              Start Learning
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            ))}
           </Tabs>
         </div>
       </main>
