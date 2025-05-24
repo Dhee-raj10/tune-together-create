@@ -12,6 +12,7 @@ import { TrackList } from "@/components/TrackList";
 import { CollaborationRequests } from "@/components/studio/CollaborationRequests";
 import { TrackUploader } from "@/components/TrackUploader";
 import { AISuggestionPanel } from "@/components/AISuggestionPanel";
+import { Button } from "@/components/ui/button"; // Added this import
 
 interface Project {
   id: string;
