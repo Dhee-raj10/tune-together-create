@@ -1,14 +1,26 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Play, Square as StopIcon, Repeat, Music, Plus } from "lucide-react";
 import { toast } from "sonner";
 
-export const TrackArrangementPanel = () => {
-  const { projectId } = useParams();
-  const [tracks, setTracks] = useState<any[]>([]);
+interface Track {
+  id: string;
+  title: string;
+  file_url: string;
+  user_id: string;
+  project_id: string;
+  created_at: string;
+  duration?: number;
+}
+
+interface TrackArrangementPanelProps {
+  projectId?: string;
+}
+
+export const TrackArrangementPanel = ({ projectId }: TrackArrangementPanelProps) => {
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -179,13 +191,30 @@ export const TrackArrangementPanel = () => {
                   <Music className="h-4 w-4 mr-2 text-music-400" />
                   <span className="text-sm">{track.title}</span>
                 </div>
+                <div className="text-xs text-muted-foreground">
+                  {track.duration ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, '0')}` : ''}
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
       <div className="flex items-center justify-between mt-4">
-        <Button variant="outline" size="sm" className="flex items-center gap-1">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="flex items-center gap-1" 
+          disabled={!projectId}
+          onClick={() => {
+            if (!projectId) return;
+            const uploadSection = document.querySelector('.upload-track');
+            if (uploadSection) {
+              uploadSection.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              toast.info("Use the Upload button at the top to add tracks");
+            }
+          }}
+        >
           <Plus size={14} />
           Add Track
         </Button>

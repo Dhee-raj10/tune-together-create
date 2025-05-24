@@ -79,35 +79,28 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
       const fileName = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `${projectId}/${fileName}`;
       
-      // Create a custom upload handler to track progress
-      const xhr = new XMLHttpRequest();
-      let uploadPromise = new Promise<{ data: any, error: any }>((resolve, reject) => {
-        xhr.upload.addEventListener('progress', event => {
-          if (event.lengthComputable) {
-            const percent = Math.round((event.loaded / event.total) * 100);
-            setUploadProgress(percent);
-          }
+      // Create a bucket if it doesn't exist
+      const { error: bucketError } = await supabase
+        .storage
+        .createBucket('audio', {
+          public: true,
+          fileSizeLimit: 50715200, // 50MB
         });
-        
-        xhr.addEventListener('error', () => {
-          reject({ error: 'XHR error during upload' });
-        });
-        
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve({ data: JSON.parse(xhr.responseText), error: null });
-          } else {
-            reject({ error: `HTTP error ${xhr.status}` });
-          }
-        });
-      });
       
-      // Standard upload without the progress tracking
+      if (bucketError && !bucketError.message.includes('already exists')) {
+        console.error('Error creating bucket:', bucketError);
+      }
+      
+      // Upload file with progress tracking
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio')
         .upload(filePath, selectedFile, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          onUploadProgress: (progress) => {
+            const percent = Math.round((progress.loaded / progress.total) * 100);
+            setUploadProgress(percent);
+          }
         });
         
       if (uploadError) {

@@ -12,16 +12,27 @@ import { TrackList } from "@/components/TrackList";
 import { CollaborationRequests } from "@/components/studio/CollaborationRequests";
 import { TrackUploader } from "@/components/TrackUploader";
 import { AISuggestionPanel } from "@/components/AISuggestionPanel";
-import { Button } from "@/components/ui/button"; // Added this import
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 interface Project {
   id: string;
   title: string;
   description: string | null;
   mode: 'solo' | 'collaboration' | 'learning';
-  master_volume: number | null; // Added
-  tempo: number | null;         // Added
-  updated_at: string; // Ensure this is fetched for potential refreshes
+  master_volume: number | null;
+  tempo: number | null;
+  updated_at: string;
+}
+
+interface Track {
+  id: string;
+  title: string;
+  file_url: string;
+  user_id: string;
+  project_id: string;
+  created_at: string;
+  duration?: number;
 }
 
 const isValidProjectMode = (mode: string): mode is 'solo' | 'collaboration' | 'learning' => {
@@ -36,6 +47,8 @@ const MusicStudio = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [tracksLoading, setTracksLoading] = useState(true);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -47,7 +60,7 @@ const MusicStudio = () => {
         setIsLoading(true);
         const { data, error } = await supabase
           .from('projects')
-          .select('*, master_volume, tempo, updated_at') // Ensure new fields and updated_at are selected
+          .select('*, master_volume, tempo, updated_at')
           .eq('id', projectId)
           .single();
 
@@ -74,7 +87,52 @@ const MusicStudio = () => {
       }
     };
 
+    const fetchTracks = async () => {
+      if (!projectId) return;
+      
+      setTracksLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('tracks')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        setTracks(data || []);
+      } catch (error) {
+        console.error('Error fetching tracks:', error);
+      } finally {
+        setTracksLoading(false);
+      }
+    };
+
     fetchProject();
+    fetchTracks();
+    
+    // Set up realtime subscription for tracks
+    if (projectId) {
+      const channel = supabase
+        .channel('studio-changes')
+        .on(
+          'postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'tracks',
+            filter: `project_id=eq.${projectId}`
+          },
+          () => {
+            fetchTracks();
+          }
+        )
+        .subscribe();
+        
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [projectId]);
 
   const handleDeleteProject = async () => {
@@ -99,13 +157,14 @@ const MusicStudio = () => {
     }
   };
 
-  const handleTrackUploadComplete = () => {
+  const handleTrackUploadComplete = (trackData: any) => {
     setShowUploader(false);
+    setTracks(prevTracks => [trackData, ...prevTracks]);
     toast.success("Track uploaded and added to your project");
   };
 
   const handleAISuggestionAccepted = () => {
-    // Refresh tracks when AI suggestion is accepted
+    // No need to manually refresh tracks anymore as we're using realtime subscriptions
     toast.success("AI suggestion integrated into your project");
   };
 
@@ -123,6 +182,9 @@ const MusicStudio = () => {
     );
   }
 
+  // Check if this project has tracks
+  const hasTracks = tracks.length > 0;
+
   return (
     <StudioLayout 
       title={project.title}
@@ -130,19 +192,22 @@ const MusicStudio = () => {
       onDelete={handleDeleteProject}
       isDeleting={isDeleting}
     >
-      {user && <CollaborationRequests />}
+      {user && project.mode === 'collaboration' && <CollaborationRequests />}
       
-      {/* AI Suggestion Panel */}
-      {user && projectId && (
-        <div className="mb-6">
-          <AISuggestionPanel 
-            projectId={projectId}
-            onSuggestionAccepted={handleAISuggestionAccepted}
-          />
+      {/* Track Upload Button */}
+      {user && (
+        <div className="flex justify-end mb-4">
+          <Button 
+            onClick={() => setShowUploader(!showUploader)}
+            className="bg-music-400 hover:bg-music-500 flex items-center gap-2"
+          >
+            <Plus size={16} /> {showUploader ? "Hide Uploader" : "Upload New Track"}
+          </Button>
         </div>
       )}
       
-      {showUploader && projectId && (
+      {/* Track Uploader */}
+      {showUploader && projectId && user && (
         <div className="mb-6">
           <TrackUploader 
             projectId={projectId} 
@@ -151,9 +216,19 @@ const MusicStudio = () => {
         </div>
       )}
       
+      {/* AI Suggestion Panel - Show only after tracks are available */}
+      {user && projectId && hasTracks && (
+        <div className="mb-6">
+          <AISuggestionPanel 
+            projectId={projectId}
+            onSuggestionAccepted={handleAISuggestionAccepted}
+          />
+        </div>
+      )}
+      
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
         <InstrumentsPanel />
-        <TrackArrangementPanel />
+        <TrackArrangementPanel projectId={projectId} />
         <MixerPanel 
           projectId={project.id}
           initialMasterVolume={project.master_volume}
@@ -167,6 +242,15 @@ const MusicStudio = () => {
             projectId={project.id}
             userId={user.id}
           />
+        </div>
+      )}
+      
+      {/* Show guidance message if no tracks */}
+      {!hasTracks && !showUploader && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-md mt-6">
+          <p className="text-center text-amber-800">
+            Your project doesn't have any tracks yet. Upload your first track to get started!
+          </p>
         </div>
       )}
     </StudioLayout>
