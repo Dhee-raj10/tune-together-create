@@ -258,8 +258,10 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          master_volume: number | null
           mode: string
           owner_id: string
+          tempo: number | null
           title: string
           updated_at: string
         }
@@ -267,8 +269,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          master_volume?: number | null
           mode: string
           owner_id: string
+          tempo?: number | null
           title: string
           updated_at?: string
         }
@@ -276,8 +280,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          master_volume?: number | null
           mode?: string
           owner_id?: string
+          tempo?: number | null
           title?: string
           updated_at?: string
         }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +17,7 @@ interface Project {
   description: string | null;
   mode: 'solo' | 'collaboration' | 'learning';
   created_at: string;
-  owner_id?: string;
+  owner_id?: string; // owner_id can be from the projects table itself
   updated_at?: string;
 }
 
@@ -29,47 +28,64 @@ const UserProfilePage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // If no userId is provided, use the current logged-in user's ID
   const profileUserId = userId || user?.id;
-  
-  // Check if viewing own profile
   const isOwnProfile = !userId || (user && userId === user.id);
 
   useEffect(() => {
     const fetchUserProjects = async () => {
-      if (!profileUserId) return;
+      if (!profileUserId) {
+        setIsLoading(false);
+        return;
+      }
 
       setIsLoading(true);
       
       try {
-        let query = supabase
+        let allFetchedProjects: Project[] = [];
+
+        // Fetch projects owned by the user
+        const { data: ownedProjectsData, error: ownedError } = await supabase
           .from('projects')
           .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (isOwnProfile) {
-          // If viewing own profile, show all projects owned by the user
-          query = query.eq('owner_id', profileUserId);
-        } else {
-          // If viewing someone else's profile, only show their public or collaborative projects
-          query = query
-            .eq('owner_id', profileUserId)
-            .neq('mode', 'solo');
+          .eq('owner_id', profileUserId);
+
+        if (ownedError) throw ownedError;
+        if (ownedProjectsData) {
+          allFetchedProjects = allFetchedProjects.concat(
+            ownedProjectsData.map(p => ({ ...p, mode: validateProjectMode(p.mode) }))
+          );
+        }
+
+        // If viewing own profile or any collaborative project, fetch projects where the user is a collaborator
+        // For other's profiles, we only want to show their collaborative projects they are part of, not their solo ones.
+        // The project_collaborators table implies it's a collaborative project already.
+        const { data: collabProjectsData, error: collabError } = await supabase
+          .from('project_collaborators')
+          .select('projects(*)') // Select all columns from the related projects table
+          .eq('user_id', profileUserId);
+
+        if (collabError) throw collabError;
+
+        if (collabProjectsData) {
+          const collaboratorProjects = collabProjectsData
+            .map(pc => pc.projects) // Extract the project object
+            .filter(p => p !== null) // Filter out any null project objects
+            .map(p => ({ ...p, mode: validateProjectMode(p!.mode) } as Project)); // Assert p is not null and cast
+          allFetchedProjects = allFetchedProjects.concat(collaboratorProjects);
         }
         
-        const { data, error } = await query;
+        // Deduplicate projects (in case a user is owner and also listed as collaborator, though unlikely)
+        const uniqueProjects = Array.from(new Map(allFetchedProjects.map(p => [p.id, p])).values());
         
-        if (error) throw error;
-        
-        if (data) {
-          // Validate and transform mode to ensure it matches the expected type
-          const typedProjects: Project[] = data.map(project => ({
-            ...project,
-            mode: validateProjectMode(project.mode)
-          }));
-          
-          setProjects(typedProjects);
-        }
+        // Filter projects based on profile view (own vs other)
+        const finalProjects = uniqueProjects.filter(p => {
+          if (isOwnProfile) return true; // Show all projects (owned or collaborated) on own profile
+          return p.mode !== 'solo'; // On other's profile, only show non-solo projects
+        }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+
+        setProjects(finalProjects);
+
       } catch (err) {
         console.error('Error fetching user projects:', err);
         toast.error('Failed to load projects');
@@ -78,7 +94,11 @@ const UserProfilePage = () => {
       }
     };
 
-    fetchUserProjects();
+    if (profileUserId) {
+      fetchUserProjects();
+    } else {
+      setIsLoading(false);
+    }
   }, [profileUserId, isOwnProfile]);
 
   // Helper function to validate project mode
@@ -102,10 +122,13 @@ const UserProfilePage = () => {
   };
 
   if (!user && !userId) {
-    toast.error('Please log in to view profile');
-    navigate('/login');
+    // This case should ideally be handled by redirecting to login if no user and no userId
+    // For instance, in a route guard or higher up. For now, showing error.
+    toast.error('Please log in to view profile or specify a user ID.');
+    navigate('/login'); // Or handle as appropriate
     return null;
   }
+
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -117,7 +140,7 @@ const UserProfilePage = () => {
             <UserProfile userId={profileUserId} />
             
             {/* Show collaboration requests only for own profile */}
-            {isOwnProfile && (
+            {isOwnProfile && user && ( // Ensure user is defined for CollaborationRequests
               <Card>
                 <CardContent className="pt-6">
                   <CollaborationRequests />
@@ -163,7 +186,7 @@ const UserProfilePage = () => {
           <div className="lg:col-span-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">
-                {isOwnProfile ? 'My Projects' : 'Projects'}
+                {isOwnProfile ? 'My Projects' : `${profileUserId ? 'User' : ''} Projects`}
               </h2>
               
               {isOwnProfile && (
@@ -191,8 +214,8 @@ const UserProfilePage = () => {
                 <Music className="h-12 w-12 mx-auto text-muted-foreground" />
                 <p className="mt-4 text-muted-foreground">
                   {isOwnProfile 
-                    ? "You haven't created any projects yet."
-                    : "This user has no public projects."}
+                    ? "You haven't created or collaborated on any projects yet."
+                    : "This user has no public or collaborative projects."}
                 </p>
                 {isOwnProfile && (
                   <Button asChild className="mt-4 bg-music-400 hover:bg-music-500">
@@ -223,7 +246,10 @@ const UserProfilePage = () => {
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
-                          {new Date(project.created_at).toLocaleDateString()}
+                          Created: {new Date(project.created_at).toLocaleDateString()}
+                          {project.updated_at && project.updated_at !== project.created_at && (
+                            <span className="ml-2">| Updated: {new Date(project.updated_at).toLocaleDateString()}</span>
+                          )}
                         </p>
                       </CardContent>
                     </Link>

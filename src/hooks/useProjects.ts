@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -10,6 +9,11 @@ interface ProjectData {
   mode: 'solo' | 'collaboration' | 'learning';
   collaboratorId?: string;
   selectedRoles?: string[];
+}
+
+interface ProjectSettingsData {
+  master_volume?: number;
+  tempo?: number;
 }
 
 export const useProjects = () => {
@@ -75,6 +79,35 @@ export const useProjects = () => {
     }
   };
 
+  const updateProjectSettings = async (projectId: string, settings: ProjectSettingsData) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ 
+          master_volume: settings.master_volume,
+          tempo: settings.tempo,
+          updated_at: new Date().toISOString(), // Explicitly update timestamp
+        })
+        .eq('id', projectId);
+
+      if (error) {
+        toast.error(`Error updating project settings: ${error.message}`);
+        console.error("Error updating project settings:", error);
+        return false;
+      }
+
+      toast.success('Project settings saved!');
+      return true;
+    } catch (err) {
+      console.error('Project settings update error:', err);
+      toast.error('An unexpected error occurred while saving settings');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getProfilesByRoles = async (roles: string[]) => {
     try {
       if (!roles || roles.length === 0) {
@@ -114,5 +147,5 @@ export const useProjects = () => {
     }
   };
 
-  return { createProject, getProfilesByRoles, isLoading };
+  return { createProject, getProfilesByRoles, updateProjectSettings, isLoading };
 };

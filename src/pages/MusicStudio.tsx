@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,9 @@ interface Project {
   title: string;
   description: string | null;
   mode: 'solo' | 'collaboration' | 'learning';
+  master_volume: number | null; // Added
+  tempo: number | null;         // Added
+  updated_at: string; // Ensure this is fetched for potential refreshes
 }
 
 const isValidProjectMode = (mode: string): mode is 'solo' | 'collaboration' | 'learning' => {
@@ -34,10 +38,15 @@ const MusicStudio = () => {
 
   useEffect(() => {
     const fetchProject = async () => {
+      if (!projectId) {
+        setIsLoading(false);
+        return;
+      }
       try {
+        setIsLoading(true);
         const { data, error } = await supabase
           .from('projects')
-          .select('*')
+          .select('*, master_volume, tempo, updated_at') // Ensure new fields and updated_at are selected
           .eq('id', projectId)
           .single();
 
@@ -47,20 +56,24 @@ const MusicStudio = () => {
           const mode = isValidProjectMode(data.mode) ? data.mode : 'solo';
           setProject({
             ...data,
-            mode
+            mode,
+            master_volume: data.master_volume,
+            tempo: data.tempo,
+            updated_at: data.updated_at,
           });
+        } else {
+          setProject(null);
         }
       } catch (err) {
         console.error("Error fetching project:", err);
+        toast.error("Failed to load project details.");
         setProject(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (projectId) {
-      fetchProject();
-    }
+    fetchProject();
   }, [projectId]);
 
   const handleDeleteProject = async () => {
@@ -103,6 +116,8 @@ const MusicStudio = () => {
     return (
       <div className="text-center p-6">
         <h2 className="text-2xl font-bold mb-4">Project not found</h2>
+        <p>The project you are looking for does not exist or could not be loaded.</p>
+        <Button onClick={() => navigate('/')} className="mt-4">Go to Homepage</Button>
       </div>
     );
   }
@@ -138,7 +153,11 @@ const MusicStudio = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
         <InstrumentsPanel />
         <TrackArrangementPanel />
-        <MixerPanel />
+        <MixerPanel 
+          projectId={project.id}
+          initialMasterVolume={project.master_volume}
+          initialTempo={project.tempo}
+        />
       </div>
       
       {user && (
