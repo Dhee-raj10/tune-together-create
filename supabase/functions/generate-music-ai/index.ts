@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -26,14 +25,8 @@ serve(async (req) => {
     });
 
     // Generate a more complex musical tone based on the parameters
-    const audioData = generateMusicalTone(instrument, style, mode, bars);
+    const audioData = generateMusicalTone(instrument, style, mode, parseInt(bars)); // Ensure bars is a number
     
-    // In a real implementation, you would:
-    // 1. Call a music AI service like MusicLM, MuseNet, etc.
-    // 2. Upload the generated audio to Supabase Storage
-    // 3. Return the storage URL
-    
-    // For now, we'll create a data URL with the generated audio
     const audioUrl = `data:audio/wav;base64,${audioData}`;
 
     const suggestion = {
@@ -45,7 +38,7 @@ serve(async (req) => {
       mode,
       bars: parseInt(bars),
       generatedAt: new Date().toISOString(),
-      duration: bars * 2 // Simple calculation: 2 seconds per bar
+      duration: parseInt(bars) * 2 // Simple calculation: 2 seconds per bar
     };
 
     console.log('AI suggestion generated:', suggestion);
@@ -104,7 +97,7 @@ function generateMusicalTone(instrument: string, style: string, mode: string, ba
       value = generateChordProgression(t, baseFreq, harmonics, style);
     } else if (mode === 'beat') {
       value = generateBeat(t, rhythm, instrument);
-    } else {
+    } else { // Covers 'continue' and any other modes as a fallback
       value = generateContinuation(t, baseFreq, harmonics, style);
     }
     
@@ -215,7 +208,7 @@ function generateBeat(t: number, rhythm: number[], instrument: string): number {
   return 0;
 }
 
-function generateContinuation(t: number, baseFreq: number, harmonics: number[], style: string): value {
+function generateContinuation(t: number, baseFreq: number, harmonics: number[], style: string): number { // Fixed return type from 'value' to 'number'
   // Generate a continuation that could blend with existing music
   const modulation = Math.sin(2 * Math.PI * 0.1 * t); // Slow modulation
   let value = 0;
