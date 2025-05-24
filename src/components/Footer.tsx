@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 
 export function Footer() {
@@ -21,12 +20,12 @@ export function Footer() {
             <h3 className="text-sm font-medium mb-2">Platform</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/solo" className="text-sm text-muted-foreground hover:text-music-400">
+                <Link to="/create/solo" className="text-sm text-muted-foreground hover:text-music-400">
                   Solo Mode
                 </Link>
               </li>
               <li>
-                <Link to="/collaborate" className="text-sm text-muted-foreground hover:text-music-400">
+                <Link to="/create/collaborate" className="text-sm text-muted-foreground hover:text-music-400">
                   Collaboration Mode
                 </Link>
               </li>
@@ -41,17 +40,17 @@ export function Footer() {
             <h3 className="text-sm font-medium mb-2">Resources</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/blog" className="text-sm text-muted-foreground hover:text-music-400">
+                <Link to="#" className="text-sm text-muted-foreground hover:text-music-400">
                   Blog
                 </Link>
               </li>
               <li>
-                <Link to="/tutorials" className="text-sm text-muted-foreground hover:text-music-400">
+                <Link to="#" className="text-sm text-muted-foreground hover:text-music-400">
                   Tutorials
                 </Link>
               </li>
               <li>
-                <Link to="/help" className="text-sm text-muted-foreground hover:text-music-400">
+                <Link to="#" className="text-sm text-muted-foreground hover:text-music-400">
                   Help Center
                 </Link>
               </li>
@@ -61,18 +60,19 @@ export function Footer() {
             <h3 className="text-sm font-medium mb-2">Legal</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/privacy" className="text-sm text-muted-foreground hover:text-music-400">
+                <Link to="#" className="text-sm text-muted-foreground hover:text-music-400">
                   Privacy
                 </Link>
               </li>
               <li>
-                <Link to="/terms" className="text-sm text-muted-foreground hover:text-music-400">
+                <Link to="#" className="text-sm text-muted-foreground hover:text-music-400">
                   Terms
                 </Link>
               </li>
             </ul>
           </div>
         </div>
+        
         <div className="mt-8 border-t pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-xs text-muted-foreground">
             &copy; {new Date().getFullYear()} TuneTogether. All rights reserved.

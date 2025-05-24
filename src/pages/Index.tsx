@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
@@ -70,7 +69,7 @@ const Index = () => {
                   "Work asynchronously or in real-time",
                   "Share files, feedback, and ideas easily",
                 ]}
-                linkTo="/create/collaborate"
+                linkTo="/create/collaborate" // This should be /create/collaborate based on user intent and App.tsx
                 buttonText="Find Collaborators"
               />
               <ModeCard
@@ -82,7 +81,7 @@ const Index = () => {
                   "Get tips from professional musicians",
                   "Participate in feedback sessions and challenges",
                 ]}
-                linkTo="/create/learn"
+                linkTo="/create/learn" // This should be /create/learn based on user intent and App.tsx
                 buttonText="Start Learning"
               />
             </div>
@@ -110,7 +109,7 @@ const Index = () => {
             </div>
             <div className="mt-12 text-center">
               <Button asChild className="bg-music-400 hover:bg-music-500">
-                <Link to="/artists">Browse All Artists</Link>
+                <Link to="#">Browse All Artists</Link>
               </Button>
             </div>
           </div>
