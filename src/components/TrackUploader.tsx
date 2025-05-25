@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,6 +32,7 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
       
       // In case of error, resolve with 0
       audio.addEventListener('error', () => {
+        console.warn('Error loading audio metadata, duration set to 0.');
         resolve(0);
         URL.revokeObjectURL(audio.src);
       });
@@ -79,29 +79,38 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
       const fileName = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `${projectId}/${fileName}`;
       
-      // Create a bucket if it doesn't exist
-      const { error: bucketError } = await supabase
-        .storage
-        .createBucket('audio', {
-          public: true,
-          fileSizeLimit: 50715200, // 50MB
-        });
-      
-      if (bucketError && !bucketError.message.includes('already exists')) {
-        console.error('Error creating bucket:', bucketError);
+      // Ensure the 'audio' bucket exists (create if not, public, with size limit)
+      // This is an idempotent operation, so it's safe to call even if the bucket exists.
+      const { error: bucketError } = await supabase.storage.createBucket('audio', {
+        public: true, // Or false, depending on your access needs
+        fileSizeLimit: '50MB', // Example: 50MB limit
+      });
+
+      if (bucketError && bucketError.message !== 'Bucket already exists') {
+        // Don't throw for "already exists", but log other unexpected bucket errors
+        console.error('Error preparing bucket:', bucketError.message);
+        toast.error('Storage setup error. Please try again.');
+        setIsUploading(false);
+        return;
       }
       
-      // Upload file with progress tracking
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('audio')
-        .upload(filePath, selectedFile, {
-          cacheControl: '3600',
-          upsert: false,
-          onUploadProgress: (progress) => {
-            const percent = Math.round((progress.loaded / progress.total) * 100);
+      const fileOptions = {
+        cacheControl: '3600',
+        upsert: false,
+      };
+
+      const fetchOptions = {
+        onProgress: (event: { total?: number; loaded: number }) => {
+          if (event.total && event.total > 0) {
+            const percent = Math.round((event.loaded / event.total) * 100);
             setUploadProgress(percent);
           }
-        });
+        }
+      };
+        
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('audio')
+        .upload(filePath, selectedFile, fileOptions, fetchOptions);
         
       if (uploadError) {
         throw uploadError;
@@ -113,6 +122,10 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
         .getPublicUrl(filePath);
         
       const publicUrl = urlData?.publicUrl;
+      
+      if (!publicUrl) {
+        throw new Error('Failed to get public URL for the uploaded file.');
+      }
       
       // Save track metadata to database
       const { data: trackData, error: trackError } = await supabase
@@ -136,13 +149,14 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
       toast.success('Track uploaded successfully');
       setSelectedFile(null);
       setTrackDuration(null);
+      setUploadProgress(0); // Reset progress after successful upload
       
       if (onUploadComplete) {
         onUploadComplete(trackData);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading track:', error);
-      toast.error('Failed to upload track');
+      toast.error(`Failed to upload track: ${error.message || 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
@@ -151,6 +165,8 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
   const cancelUpload = () => {
     setSelectedFile(null);
     setTrackDuration(null);
+    setUploadProgress(0); // Reset progress on cancel
+    setIsUploading(false); // Ensure uploading state is reset
   };
 
   return (
@@ -179,10 +195,10 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-            <div className="flex items-center">
-              <Music className="h-8 w-8 text-blue-500 mr-3" />
+            <div className="flex items-center min-w-0"> {/* Added min-w-0 for better truncation */}
+              <Music className="h-8 w-8 text-blue-500 mr-3 flex-shrink-0" /> {/* Added flex-shrink-0 */}
               <div className="truncate">
-                <p className="font-medium truncate">{selectedFile.name}</p>
+                <p className="font-medium truncate" title={selectedFile.name}>{selectedFile.name}</p>
                 <div className="flex text-xs text-gray-500">
                   <span>{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
                   {trackDuration && (
@@ -191,9 +207,11 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
                 </div>
               </div>
             </div>
-            <button onClick={cancelUpload} className="text-gray-500 hover:text-red-500">
-              <X size={18} />
-            </button>
+            {!isUploading && ( // Only show cancel if not actively uploading
+              <button onClick={cancelUpload} className="text-gray-500 hover:text-red-500 ml-2 flex-shrink-0"> {/* Added ml-2 and flex-shrink-0 */}
+                <X size={18} />
+              </button>
+            )}
           </div>
           
           {isUploading ? (
@@ -202,9 +220,9 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
               <p className="text-xs text-center">{Math.round(uploadProgress)}% Complete</p>
             </div>
           ) : (
-            <div className="flex justify-between">
+            <div className="flex justify-end space-x-2"> {/* Changed to justify-end and added space-x-2 */}
               <Button variant="outline" onClick={cancelUpload}>
-                Cancel
+                Clear Selection
               </Button>
               <Button 
                 onClick={uploadTrack}
