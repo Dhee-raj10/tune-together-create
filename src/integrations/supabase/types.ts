@@ -9,6 +9,68 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_suggestions: {
+        Row: {
+          audio_url: string
+          bars: number
+          created_at: string
+          duration: number | null
+          generation_mode: string
+          id: string
+          instrument: string
+          is_accepted: boolean
+          is_discarded: boolean
+          project_id: string
+          style: string
+          text_prompt: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audio_url: string
+          bars: number
+          created_at?: string
+          duration?: number | null
+          generation_mode: string
+          id?: string
+          instrument: string
+          is_accepted?: boolean
+          is_discarded?: boolean
+          project_id: string
+          style: string
+          text_prompt?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audio_url?: string
+          bars?: number
+          created_at?: string
+          duration?: number | null
+          generation_mode?: string
+          id?: string
+          instrument?: string
+          is_accepted?: boolean
+          is_discarded?: boolean
+          project_id?: string
+          style?: string
+          text_prompt?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_suggestions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaboration_requests: {
         Row: {
           created_at: string | null

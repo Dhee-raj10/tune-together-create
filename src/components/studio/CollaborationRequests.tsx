@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Check, X, Music } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface CollaborationRequest {
   id: string;
@@ -26,6 +27,7 @@ interface CollaborationRequest {
 
 export const CollaborationRequests = () => {
   const { user } = useAuth();
+  const navigate = useNavigate(); // Initialize useNavigate
   const [requests, setRequests] = useState<CollaborationRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -164,6 +166,7 @@ export const CollaborationRequests = () => {
     };
   }, [user]);
 
+
   const handleAction = async (requestId: string, status: 'accepted' | 'rejected') => {
     if (!user) return;
 
@@ -177,14 +180,15 @@ export const CollaborationRequests = () => {
 
       if (updateError) throw updateError;
 
+      const request = requests.find(req => req.id === requestId);
+
       // If accepted, add the user as a collaborator
       if (status === 'accepted') {
-        const request = requests.find(req => req.id === requestId);
-        if (request && request.project_id) { // Ensure request and project_id exist
+        if (request && request.project_id) { 
           const { error: collabError } = await supabase
             .from('project_collaborators')
             .insert({
-              project_id: request.project_id, // Use project_id from the request itself
+              project_id: request.project_id,
               user_id: user.id,
               role: 'contributor' 
             });
@@ -192,15 +196,14 @@ export const CollaborationRequests = () => {
           if (collabError) throw collabError;
           
           toast.success(`You are now collaborating on "${request.projects?.title || 'the project'}"`);
+          navigate(`/studio/${request.project_id}`); // Navigate to the project studio
         } else {
-            // This case should ideally not happen if data is consistent
             throw new Error("Could not find request details or project ID to accept collaboration.");
         }
       } else {
         toast.info('Collaboration request rejected');
       }
 
-      // Update local state by removing the processed request
       setRequests(prev => prev.filter(req => req.id !== requestId));
     } catch (error: any) {
       console.error('Error handling collaboration request:', error);
