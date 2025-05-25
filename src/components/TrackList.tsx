@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { TrackPlayer } from './TrackPlayer';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+// Button and Plus icon are no longer needed here directly for uploading
+// import { Button } from '@/components/ui/button';
+// import { Plus } from 'lucide-react';
 
 interface Track {
   id: string;
@@ -17,13 +18,13 @@ interface Track {
 
 interface TrackListProps {
   projectId: string;
-  userId: string;
+  userId: string; // userId might not be strictly necessary if all data is project-scoped and RLS handles user access
 }
 
-export const TrackList = ({ projectId, userId }: TrackListProps) => {
+export const TrackList = ({ projectId }: TrackListProps) => { // Removed userId from props for now
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showUploadButton, setShowUploadButton] = useState(false);
+  // showUploadButton state is no longer needed
   
   const fetchTracks = async () => {
     setLoading(true);
@@ -37,9 +38,7 @@ export const TrackList = ({ projectId, userId }: TrackListProps) => {
       if (error) throw error;
       
       setTracks(data || []);
-      
-      // Only show upload button if we have no tracks
-      setShowUploadButton(data?.length === 0);
+      // Logic for setShowUploadButton is removed
     } catch (error) {
       console.error('Error fetching tracks:', error);
     } finally {
@@ -52,9 +51,8 @@ export const TrackList = ({ projectId, userId }: TrackListProps) => {
       fetchTracks();
     }
     
-    // Set up realtime subscription
     const channel = supabase
-      .channel('tracks-changes')
+      .channel(`tracks-changes-${projectId}`) // Ensure unique channel name per project
       .on(
         'postgres_changes', 
         { 
@@ -64,7 +62,7 @@ export const TrackList = ({ projectId, userId }: TrackListProps) => {
           filter: `project_id=eq.${projectId}`
         },
         () => {
-          fetchTracks();
+          fetchTracks(); // Refetch tracks on any change
         }
       )
       .subscribe();
@@ -74,30 +72,13 @@ export const TrackList = ({ projectId, userId }: TrackListProps) => {
     };
   }, [projectId]);
   
-  const scrollToUploader = () => {
-    // Find the upload section and scroll to it
-    const uploadSection = document.querySelector('.upload-track');
-    if (uploadSection) {
-      uploadSection.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      // If we can't find it, try to scroll to the top where the upload button should be
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-  
+  // scrollToUploader function is removed as the button is gone
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Tracks</h3>
-        {showUploadButton && (
-          <Button 
-            onClick={scrollToUploader}
-            className="bg-music-400 hover:bg-music-500 flex items-center gap-2"
-            size="sm"
-          >
-            <Plus size={14} /> Upload Track
-          </Button>
-        )}
+        {/* Removed Upload Button from here */}
       </div>
       
       <div className="space-y-4 mt-4">
@@ -105,14 +86,8 @@ export const TrackList = ({ projectId, userId }: TrackListProps) => {
           <p className="text-muted-foreground text-sm">Loading tracks...</p>
         ) : tracks.length === 0 ? (
           <div className="text-center py-8 bg-muted/40 rounded-lg">
-            <p className="text-muted-foreground text-sm mb-4">No tracks yet. Upload your first track!</p>
-            <Button 
-              onClick={scrollToUploader}
-              className="bg-music-400 hover:bg-music-500 flex items-center gap-2"
-              size="sm"
-            >
-              <Plus size={14} /> Upload Track
-            </Button>
+            <p className="text-muted-foreground text-sm mb-4">No tracks yet. Use the "Upload New Track" button above to add your first track!</p>
+            {/* Removed Upload Button from here */}
           </div>
         ) : (
           tracks.map(track => (
@@ -128,3 +103,4 @@ export const TrackList = ({ projectId, userId }: TrackListProps) => {
     </div>
   );
 };
+

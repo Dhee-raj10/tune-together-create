@@ -1,9 +1,9 @@
 
-import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
+import { ArrowLeft, Save } from "lucide-react"; // Import Save icon
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/Navbar";
-import { DeleteProjectButton } from "@/components/studio/DeleteProjectButton"; // Add this import
+import { DeleteProjectButton } from "@/components/studio/DeleteProjectButton";
 
 interface StudioLayoutProps {
   children: React.ReactNode;
@@ -11,6 +11,7 @@ interface StudioLayoutProps {
   mode: 'solo' | 'collaboration' | 'learning';
   onDelete: () => void;
   isDeleting: boolean;
+  onSaveAndExit: () => void; // New prop for save and exit
 }
 
 export const StudioLayout = ({ 
@@ -18,8 +19,11 @@ export const StudioLayout = ({
   title, 
   mode, 
   onDelete, 
-  isDeleting 
+  isDeleting,
+  onSaveAndExit // Destructure new prop
 }: StudioLayoutProps) => {
+  const navigate = useNavigate(); // For programmatic navigation
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -38,6 +42,14 @@ export const StudioLayout = ({
               <div className="text-sm text-muted-foreground">
                 {mode} mode
               </div>
+              <Button 
+                variant="outline" 
+                onClick={onSaveAndExit} // Use the passed handler
+                className="flex items-center gap-2"
+              >
+                <Save size={16} />
+                Save & Exit
+              </Button>
               <DeleteProjectButton onDelete={onDelete} isDeleting={isDeleting} />
             </div>
           </div>
@@ -47,3 +59,4 @@ export const StudioLayout = ({
     </div>
   );
 };
+

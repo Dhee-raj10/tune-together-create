@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,7 +47,7 @@ const MusicStudio = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [tracksLoading, setTracksLoading] = useState(true);
+  const [tracksLoading, setTracksLoading] = useState(true); // This state might be redundant if TrackList handles its own loading
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -102,19 +101,18 @@ const MusicStudio = () => {
         
         setTracks(data || []);
       } catch (error) {
-        console.error('Error fetching tracks:', error);
+        console.error('Error fetching tracks in MusicStudio:', error); // Differentiate log
       } finally {
         setTracksLoading(false);
       }
     };
 
     fetchProject();
-    fetchTracks();
+    fetchTracks(); // Initial fetch
     
-    // Set up realtime subscription for tracks
     if (projectId) {
       const channel = supabase
-        .channel('studio-changes')
+        .channel(`music-studio-tracks-changes-${projectId}`) // Ensure unique channel name
         .on(
           'postgres_changes', 
           { 
@@ -123,8 +121,9 @@ const MusicStudio = () => {
             table: 'tracks',
             filter: `project_id=eq.${projectId}`
           },
-          () => {
-            fetchTracks();
+          (payload) => {
+            console.log('Change received in MusicStudio!', payload);
+            fetchTracks(); // Refetch tracks on any change
           }
         )
         .subscribe();
@@ -187,14 +186,14 @@ const MusicStudio = () => {
 
   return (
     <StudioLayout 
-      title={project.title}
-      mode={project.mode}
+      title={project?.title || "Loading Project..."}
+      mode={project?.mode || 'solo'}
       onDelete={handleDeleteProject}
       isDeleting={isDeleting}
+      onSaveAndExit={() => navigate('/')} // Added prop for Save & Exit
     >
-      {user && project.mode === 'collaboration' && <CollaborationRequests />}
+      {user && project?.mode === 'collaboration' && <CollaborationRequests />}
       
-      {/* Track Upload Button */}
       {user && (
         <div className="flex justify-end mb-4">
           <Button 
@@ -206,9 +205,8 @@ const MusicStudio = () => {
         </div>
       )}
       
-      {/* Track Uploader */}
       {showUploader && projectId && user && (
-        <div className="mb-6">
+        <div className="mb-6 upload-track"> {/* Added class for scrolling if needed elsewhere, though direct buttons are removed */}
           <TrackUploader 
             projectId={projectId} 
             onUploadComplete={handleTrackUploadComplete} 
@@ -216,7 +214,6 @@ const MusicStudio = () => {
         </div>
       )}
       
-      {/* AI Suggestion Panel - Show only after tracks are available */}
       {user && projectId && hasTracks && (
         <div className="mb-6">
           <AISuggestionPanel 
@@ -236,20 +233,19 @@ const MusicStudio = () => {
         />
       </div>
       
-      {user && (
+      {user && project && ( // Ensure project is loaded before rendering TrackList
         <div className="mt-8">
           <TrackList 
             projectId={project.id}
-            userId={user.id}
+            userId={user.id} // Passing userId as TrackList still defines it, though might be unused
           />
         </div>
       )}
       
-      {/* Show guidance message if no tracks */}
-      {!hasTracks && !showUploader && (
+      {!tracksLoading && !hasTracks && !showUploader && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-md mt-6">
           <p className="text-center text-amber-800">
-            Your project doesn't have any tracks yet. Upload your first track to get started!
+            Your project doesn't have any tracks yet. Use the "Upload New Track" button above to add your first track and get started!
           </p>
         </div>
       )}

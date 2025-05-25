@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Play, Square as StopIcon, Repeat, Music, Plus } from "lucide-react";
+import { Play, Square as StopIcon, Repeat, Music } from "lucide-react"; // Removed Plus
 import { toast } from "sonner";
 
 interface Track {
@@ -49,9 +48,8 @@ export const TrackArrangementPanel = ({ projectId }: TrackArrangementPanelProps)
     
     fetchTracks();
     
-    // Set up realtime subscription
     const channel = supabase
-      .channel('tracks-changes')
+      .channel(`track-arrangement-changes-${projectId}`) // Ensure unique channel name
       .on(
         'postgres_changes', 
         { 
@@ -168,6 +166,7 @@ export const TrackArrangementPanel = ({ projectId }: TrackArrangementPanelProps)
     <div className="lg:col-span-6 border rounded-lg p-4 bg-card min-h-[400px]">
       <h2 className="font-bold mb-4">Tracks</h2>
       <div className="bg-muted/50 rounded-lg p-2 h-[300px] flex flex-col">
+        {/* ... keep existing code (loading and no tracks UI) */}
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground">Loading tracks...</p>
@@ -177,7 +176,7 @@ export const TrackArrangementPanel = ({ projectId }: TrackArrangementPanelProps)
             <div className="text-center">
               <Music className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
               <p className="text-muted-foreground mt-2">No tracks yet</p>
-              <p className="text-xs text-muted-foreground">Upload tracks to see them here</p>
+              <p className="text-xs text-muted-foreground">Use the "Upload New Track" button above to add tracks.</p>
             </div>
           </div>
         ) : (
@@ -199,25 +198,8 @@ export const TrackArrangementPanel = ({ projectId }: TrackArrangementPanelProps)
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between mt-4">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="flex items-center gap-1" 
-          disabled={!projectId}
-          onClick={() => {
-            if (!projectId) return;
-            const uploadSection = document.querySelector('.upload-track');
-            if (uploadSection) {
-              uploadSection.scrollIntoView({ behavior: 'smooth' });
-            } else {
-              toast.info("Use the Upload button at the top to add tracks");
-            }
-          }}
-        >
-          <Plus size={14} />
-          Add Track
-        </Button>
+      <div className="flex items-center justify-end mt-4"> {/* Changed justify-between to justify-end */}
+        {/* Removed Add Track Button */}
         <div className="flex items-center gap-2">
           {isPlaying ? (
             <Button 

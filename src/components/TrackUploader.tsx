@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/integrations/supabase/client';
@@ -69,46 +68,33 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
     if (!selectedFile || !projectId || !user) return;
     
     setIsUploading(true);
-    setUploadProgress(0); // Initialize progress
+    setUploadProgress(0);
     
     try {
-      // Upload file to Supabase Storage
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `${projectId}/${fileName}`;
-      
-      const { error: bucketError } = await supabase.storage.createBucket('audio', {
-        public: true,
-        fileSizeLimit: '50MB',
-      });
-
-      if (bucketError && bucketError.message !== 'Bucket already exists') {
-        console.error('Error preparing bucket:', bucketError.message);
-        toast.error('Storage setup error. Please try again.');
-        setIsUploading(false);
-        setUploadProgress(0); // Reset progress on bucket error
-        return;
-      }
+      const filePath = `${projectId}/${fileName}`; // Files will be stored in a folder named after the projectId
       
       const fileOptions = {
         cacheControl: '3600',
         upsert: false,
       };
         
-      // Corrected: Call 'upload' with 3 arguments.
-      // Real-time progress updates are removed with this simplification.
-      // Progress will go from 0% to 100% on success.
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio')
         .upload(filePath, selectedFile, fileOptions);
         
       if (uploadError) {
-        throw uploadError;
+        // Check if the error is due to an existing file if upsert is false, though less likely with unique names
+        if (uploadError.message.includes('The resource already exists')) {
+             toast.error('A file with this name path already exists. Please try renaming or a different file.');
+        } else {
+            throw uploadError;
+        }
       }
       
-      setUploadProgress(100); // Indicate completion before further actions
+      setUploadProgress(100);
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from('audio')
         .getPublicUrl(filePath);
@@ -119,7 +105,6 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
         throw new Error('Failed to get public URL for the uploaded file.');
       }
       
-      // Save track metadata to database
       const { data: trackData, error: trackError } = await supabase
         .from('tracks')
         .insert({
@@ -145,11 +130,11 @@ export const TrackUploader: React.FC<TrackUploaderProps> = ({ projectId, onUploa
       if (onUploadComplete) {
         onUploadComplete(trackData);
       }
-      setUploadProgress(0); // Reset progress for the next upload
+      setUploadProgress(0);
     } catch (error: any) {
       console.error('Error uploading track:', error);
       toast.error(`Failed to upload track: ${error.message || 'Unknown error'}`);
-      setUploadProgress(0); // Reset progress on error
+      setUploadProgress(0);
     } finally {
       setIsUploading(false);
     }
