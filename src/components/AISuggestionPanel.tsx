@@ -7,23 +7,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Music, Check, X, Loader2 } from 'lucide-react';
 import { TrackPlayer } from './TrackPlayer';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AISuggestion {
-  id: string; // From DB
-  project_id: string; // From DB
-  user_id: string; // From DB
-  created_at: string; // From DB
-  audioUrl: string; // maps to audio_url from DB
+  id: string; 
+  project_id: string; 
+  user_id: string; 
+  created_at: string; 
+  audioUrl: string; 
   title: string;
   instrument: string;
   style: string;
-  generation_mode: string; // maps to generation_mode from DB (was 'mode' in UI state)
+  generation_mode: string; 
   bars: number;
   duration?: number;
-  text_prompt?: string | null; // maps to text_prompt from DB
-  is_accepted: boolean; // From DB
-  is_discarded: boolean; // From DB
+  text_prompt?: string | null; 
+  is_accepted: boolean; 
+  is_discarded: boolean; 
 }
 
 interface AISuggestionPanelProps {
@@ -32,13 +32,13 @@ interface AISuggestionPanelProps {
 }
 
 export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggestionPanelProps) => {
-  const { user } = useAuth(); // Get current user
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentSuggestion, setCurrentSuggestion] = useState<AISuggestion | null>(null);
   const [instrument, setInstrument] = useState('');
   const [style, setStyle] = useState('');
   const [bars, setBars] = useState('4');
-  const [selectedGenerationMode, setSelectedGenerationMode] = useState(''); // Renamed from 'mode'
+  const [selectedGenerationMode, setSelectedGenerationMode] = useState('');
   const [textPrompt, setTextPrompt] = useState('');
   const [isAccepting, setIsAccepting] = useState(false);
   const [hasExistingTracks, setHasExistingTracks] = useState(false);
@@ -53,7 +53,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
       }
 
       try {
-        // Check for existing tracks
         const { count: trackCount, error: tracksError } = await supabase
           .from('tracks')
           .select('id', { count: 'exact', head: true })
@@ -62,7 +61,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
         if (tracksError) throw tracksError;
         setHasExistingTracks((trackCount || 0) > 0);
 
-        // Fetch latest non-accepted, non-discarded AI suggestion
         const { data: suggestionData, error: suggestionError } = await supabase
           .from('ai_suggestions')
           .select('*')
@@ -75,7 +73,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
 
         if (suggestionError) {
           console.error('Error fetching latest AI suggestion:', suggestionError);
-          // Do not toast for "no rows found", maybeSingle handles this.
         }
         
         if (suggestionData) {
@@ -104,10 +101,10 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
       }
     };
 
-    if (projectId && user) { // Ensure user is available for potential operations
+    if (projectId && user) {
         checkExistingTracksAndFetchSuggestion();
     } else if (!user) {
-        setLoading(false); // If no user, no operations can be done.
+        setLoading(false); 
     }
   }, [projectId, user]);
 
@@ -129,7 +126,7 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
     { value: 'classical', label: '🎼 Classical' }
   ];
 
-  const generationModes = [ // Renamed from 'modes'
+  const generationModes = [ 
     { value: 'melody', label: '🎶 Melody' },
     { value: 'chord', label: '🎹 Chord Progression' },
     { value: 'beat', label: '🥁 Beat' },
@@ -154,17 +151,16 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
     }
 
     setIsGenerating(true);
-    setCurrentSuggestion(null); // Clear previous suggestion from UI
+    setCurrentSuggestion(null); 
     
     try {
       console.log('Calling AI suggestion function...');
-      // Call the edge function
       const { data: edgeFnResponse, error: edgeFnError } = await supabase.functions.invoke('generate-music-ai', {
         body: {
           projectId,
           instrument,
           style,
-          mode: selectedGenerationMode, // Pass selectedGenerationMode as 'mode'
+          mode: selectedGenerationMode, 
           bars: parseInt(bars),
           textPrompt
         }
@@ -179,7 +175,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
       
       if (edgeFnResponse && edgeFnResponse.suggestion) {
         const edgeFnSuggestion = edgeFnResponse.suggestion;
-        // Save the suggestion to the database
         const newSuggestionData = {
           project_id: projectId,
           user_id: user.id,
@@ -187,7 +182,7 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
           audio_url: edgeFnSuggestion.audioUrl,
           instrument: edgeFnSuggestion.instrument,
           style: edgeFnSuggestion.style,
-          generation_mode: edgeFnSuggestion.mode, // This is 'mode' from edge fn
+          generation_mode: edgeFnSuggestion.mode, 
           bars: edgeFnSuggestion.bars,
           duration: edgeFnSuggestion.duration,
           text_prompt: textPrompt || null,
@@ -236,14 +231,13 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
 
   const handleAcceptSuggestion = async () => {
     if (!currentSuggestion || !currentSuggestion.id) return;
-    if (!user) { // Re-check user, though it should be present if suggestion exists
+    if (!user) { 
       toast.error('You must be logged in to accept suggestions');
       return;
     }
 
     setIsAccepting(true);
     try {
-      // Mark suggestion as accepted in the database
       const { error: updateError } = await supabase
         .from('ai_suggestions')
         .update({ is_accepted: true, updated_at: new Date().toISOString() })
@@ -252,20 +246,18 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
       if (updateError) {
         console.error('Error marking suggestion as accepted:', updateError);
         toast.error('Failed to update suggestion status.');
-        // Do not proceed if update fails, as it might cause inconsistencies
         setIsAccepting(false);
         return;
       }
       
-      // Add accepted suggestion to tracks table
       const suggestionTitle = `AI ${currentSuggestion.title}`;
       console.log('Adding AI suggestion to tracks:', {
         project_id: projectId,
         title: suggestionTitle,
         file_url: currentSuggestion.audioUrl,
-        user_id: user.id, // user.id from useAuth()
-        file_type: 'audio/wav', // Assuming WAV, might need to get from suggestion data if available
-        duration: currentSuggestion.duration || (currentSuggestion.bars * 2) // Example duration calculation
+        user_id: user.id, 
+        file_type: 'audio/wav', 
+        duration: currentSuggestion.duration || (currentSuggestion.bars * 2)
       });
 
       const { error: trackInsertError } = await supabase.from('tracks').insert({
@@ -279,17 +271,15 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
 
       if (trackInsertError) {
         console.error('Error adding suggestion to tracks:', trackInsertError);
-        // If track insert fails, should we roll back the 'is_accepted' status? For now, log and error.
         toast.error('Failed to add suggestion to project tracks. Suggestion status was updated.');
         throw trackInsertError;
       }
 
       toast.success('🎵 AI suggestion accepted and added to your project!');
-      setCurrentSuggestion(null); // Clear from UI
-      onSuggestionAccepted(); // Callback to inform parent
-      setHasExistingTracks(true); // An AI track is now an existing track
+      setCurrentSuggestion(null); 
+      onSuggestionAccepted(); 
+      setHasExistingTracks(true); 
       
-      // Reset form fields
       setInstrument('');
       setStyle('');
       setSelectedGenerationMode('');
@@ -298,8 +288,7 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
       
     } catch (error) {
       console.error('Error accepting suggestion:', error);
-      // General error toast if not more specific one was shown
-      if (!toast || !(toast as any).isToastVisible) { // Check if a toast is already active, crude check
+      if (!toast || !(toast as any).isToastVisible) { 
           toast.error('Failed to process suggestion acceptance.');
       }
     } finally {
@@ -311,7 +300,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
     if (!currentSuggestion || !currentSuggestion.id) return;
 
     try {
-      // Mark suggestion as discarded in the database
       const { error } = await supabase
         .from('ai_suggestions')
         .update({ is_discarded: true, updated_at: new Date().toISOString() })
@@ -332,22 +320,6 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
 
   if (loading) {
     return <div className="text-center p-4">Loading AI Suggestions...</div>;
-  }
-
-  if (!hasExistingTracks && !currentSuggestion) { // Also check for currentSuggestion here
-    return (
-      <div className="space-y-4 p-4 border rounded-lg bg-card">
-        <div className="flex items-center gap-2">
-          <Music className="h-5 w-5 text-music-400" />
-          <h3 className="text-lg font-semibold">🎵 AI Music Suggestions</h3>
-        </div>
-        <div className="text-center py-8 text-muted-foreground">
-          <Music className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="text-lg font-medium mb-2">Upload a track first</p>
-          <p className="text-sm">AI suggestions work best when there's existing music. You can also generate one from scratch.</p>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -438,6 +410,14 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
               className="mt-1"
             />
           </div>
+          
+          {!hasExistingTracks && (
+            <p className="text-sm text-muted-foreground mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <strong>Tip:</strong> AI suggestions can also build upon your existing tracks. 
+              Upload some music via the "Upload New Track" button to try it out! 
+              You can still generate new ideas from scratch right here.
+            </p>
+          )}
 
           <Button 
             onClick={handleGenerateSuggestion}
@@ -507,8 +487,7 @@ export const AISuggestionPanel = ({ projectId, onSuggestionAccepted }: AISuggest
             variant="link" 
             className="w-full mt-2"
             onClick={() => {
-                setCurrentSuggestion(null); // Clear current to show generation form
-                // Optionally reset form fields here too if desired
+                setCurrentSuggestion(null);
                 setInstrument('');
                 setStyle('');
                 setSelectedGenerationMode('');

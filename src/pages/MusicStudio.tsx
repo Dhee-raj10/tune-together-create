@@ -316,7 +316,7 @@ const MusicStudio = () => {
         </div>
       )}
       
-      {user && projectId && hasTracks && (
+      {user && projectId && (
         <div className="mb-6">
           <AISuggestionPanel 
             projectId={projectId}
