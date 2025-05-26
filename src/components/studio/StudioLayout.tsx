@@ -1,6 +1,6 @@
 
-import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
-import { ArrowLeft, Save } from "lucide-react"; // Import Save icon
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, Save, Hourglass } from "lucide-react"; // Import Hourglass icon
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/Navbar";
 import { DeleteProjectButton } from "@/components/studio/DeleteProjectButton";
@@ -11,7 +11,9 @@ interface StudioLayoutProps {
   mode: 'solo' | 'collaboration' | 'learning';
   onDelete: () => void;
   isDeleting: boolean;
-  onSaveAndExit: () => void; // New prop for save and exit
+  onRequestSaveAndExit: () => void; // Renamed from onSaveAndExit
+  isRequestingExit: boolean; // New prop to indicate pending request or current request process
+  canExitImmediately: boolean; // New prop to indicate if user can exit without request
 }
 
 export const StudioLayout = ({ 
@@ -20,9 +22,17 @@ export const StudioLayout = ({
   mode, 
   onDelete, 
   isDeleting,
-  onSaveAndExit // Destructure new prop
+  onRequestSaveAndExit, // Use new prop
+  isRequestingExit,     // Use new prop
+  canExitImmediately    // Use new prop
 }: StudioLayoutProps) => {
-  const navigate = useNavigate(); // For programmatic navigation
+  const navigate = useNavigate();
+
+  const getSaveButtonText = () => {
+    if (canExitImmediately) return "Save & Exit";
+    if (isRequestingExit) return "Request Pending...";
+    return "Request Save & Exit";
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -44,11 +54,12 @@ export const StudioLayout = ({
               </div>
               <Button 
                 variant="outline" 
-                onClick={onSaveAndExit} // Use the passed handler
+                onClick={onRequestSaveAndExit}
+                disabled={!canExitImmediately && isRequestingExit} // Disable if request is pending and can't exit immediately
                 className="flex items-center gap-2"
               >
-                <Save size={16} />
-                Save & Exit
+                {canExitImmediately ? <Save size={16} /> : (isRequestingExit ? <Hourglass size={16} className="animate-spin" /> : <Save size={16} />) }
+                {getSaveButtonText()}
               </Button>
               <DeleteProjectButton onDelete={onDelete} isDeleting={isDeleting} />
             </div>
@@ -59,4 +70,3 @@ export const StudioLayout = ({
     </div>
   );
 };
-

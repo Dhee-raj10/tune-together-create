@@ -315,6 +315,44 @@ export type Database = {
           },
         ]
       }
+      project_exit_requests: {
+        Row: {
+          approver_id: string
+          created_at: string
+          id: string
+          project_id: string
+          requester_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approver_id: string
+          created_at?: string
+          id?: string
+          project_id: string
+          requester_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approver_id?: string
+          created_at?: string
+          id?: string
+          project_id?: string
+          requester_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_exit_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string

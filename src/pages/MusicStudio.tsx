@@ -13,26 +13,18 @@ import { TrackUploader } from "@/components/TrackUploader";
 import { AISuggestionPanel } from "@/components/AISuggestionPanel";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import type { Tables } from "@/integrations/supabase/types"; // Import Tables type
 
-interface Project {
-  id: string;
-  title: string;
-  description: string | null;
-  mode: 'solo' | 'collaboration' | 'learning';
-  master_volume: number | null;
-  tempo: number | null;
-  updated_at: string;
+interface Project extends Tables<'projects'> { // Use Tables<'projects'> for strong typing
+  // id, title, description, mode, master_volume, tempo, updated_at are from Tables<'projects'>
+  // owner_id is also part of Tables<'projects'>
 }
 
-interface Track {
-  id: string;
-  title: string;
-  file_url: string;
-  user_id: string;
-  project_id: string;
-  created_at: string;
-  duration?: number;
+interface Track extends Tables<'tracks'> {
+  // id, title, file_url, user_id, project_id, created_at, duration are from Tables<'tracks'>
 }
+
+interface ProjectExitRequest extends Tables<'project_exit_requests'> {}
 
 const isValidProjectMode = (mode: string): mode is 'solo' | 'collaboration' | 'learning' => {
   return ['solo', 'collaboration', 'learning'].includes(mode);
@@ -47,7 +39,9 @@ const MusicStudio = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [tracksLoading, setTracksLoading] = useState(true); // This state might be redundant if TrackList handles its own loading
+  const [tracksLoading, setTracksLoading] = useState(true);
+  const [exitRequestStatus, setExitRequestStatus] = useState<ProjectExitRequest['status'] | null>(null);
+  const [isRequestingExit, setIsRequestingExit] = useState(false);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -59,7 +53,7 @@ const MusicStudio = () => {
         setIsLoading(true);
         const { data, error } = await supabase
           .from('projects')
-          .select('*, master_volume, tempo, updated_at')
+          .select('*') // Select all columns, including owner_id
           .eq('id', projectId)
           .single();
 
@@ -70,9 +64,6 @@ const MusicStudio = () => {
           setProject({
             ...data,
             mode,
-            master_volume: data.master_volume,
-            tempo: data.tempo,
-            updated_at: data.updated_at,
           });
         } else {
           setProject(null);
@@ -108,11 +99,31 @@ const MusicStudio = () => {
     };
 
     fetchProject();
-    fetchTracks(); // Initial fetch
+    fetchTracks(); 
     
-    if (projectId) {
-      const channel = supabase
-        .channel(`music-studio-tracks-changes-${projectId}`) // Ensure unique channel name
+    let projectExitRequestChannel: any;
+    if (projectId && user) {
+      // Check for existing pending exit requests for this user and project
+      const checkExistingExitRequest = async () => {
+        const { data, error } = await supabase
+          .from('project_exit_requests')
+          .select('status')
+          .eq('project_id', projectId)
+          .eq('requester_id', user.id)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error checking existing exit request:", error);
+        } else if (data) {
+          setExitRequestStatus(data.status as ProjectExitRequest['status']);
+        }
+      };
+      checkExistingExitRequest();
+
+      // Realtime listener for tracks (existing)
+      const tracksChannel = supabase
+        .channel(`music-studio-tracks-changes-${projectId}`)
         .on(
           'postgres_changes', 
           { 
@@ -122,17 +133,49 @@ const MusicStudio = () => {
             filter: `project_id=eq.${projectId}`
           },
           (payload) => {
-            console.log('Change received in MusicStudio!', payload);
-            fetchTracks(); // Refetch tracks on any change
+            console.log('Track change received in MusicStudio!', payload);
+            fetchTracks();
+          }
+        )
+        .subscribe();
+      
+      // Realtime listener for project_exit_requests
+      projectExitRequestChannel = supabase
+        .channel(`project-exit-requests-changes-${projectId}-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'project_exit_requests',
+            filter: `project_id=eq.${projectId},requester_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Project exit request change received!', payload);
+            const updatedRequest = payload.new as ProjectExitRequest;
+            if (updatedRequest) {
+              setExitRequestStatus(updatedRequest.status);
+              if (updatedRequest.status === 'approved') {
+                toast.success("Exit request approved! You can now leave the project.");
+                // Optionally navigate away or enable a "Leave Now" button
+                // For now, just notify. User can click "Save & Exit" again.
+                // Or directly navigate: navigate('/');
+              } else if (updatedRequest.status === 'rejected') {
+                toast.error("Exit request rejected by the project owner.");
+              }
+            }
           }
         )
         .subscribe();
         
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(tracksChannel);
+        if (projectExitRequestChannel) {
+          supabase.removeChannel(projectExitRequestChannel);
+        }
       };
     }
-  }, [projectId]);
+  }, [projectId, user]); // Added user to dependency array
 
   const handleDeleteProject = async () => {
     if (!projectId) return;
@@ -158,14 +201,64 @@ const MusicStudio = () => {
 
   const handleTrackUploadComplete = (trackData: any) => {
     setShowUploader(false);
-    setTracks(prevTracks => [trackData, ...prevTracks]);
+    // setTracks(prevTracks => [trackData, ...prevTracks]); // This is handled by realtime now
     toast.success("Track uploaded and added to your project");
   };
 
   const handleAISuggestionAccepted = () => {
-    // No need to manually refresh tracks anymore as we're using realtime subscriptions
     toast.success("AI suggestion integrated into your project");
   };
+
+  const handleRequestSaveAndExit = async () => {
+    if (!project || !user) {
+      toast.error("Project or user data not available.");
+      return;
+    }
+
+    // If user is the owner or project mode is solo/learning, exit immediately
+    if (project.owner_id === user.id || project.mode === 'solo' || project.mode === 'learning') {
+      navigate('/');
+      return;
+    }
+    
+    // If it's a collaboration and user is not the owner
+    if (project.mode === 'collaboration' && project.owner_id !== user.id) {
+      // Check if already approved
+      if (exitRequestStatus === 'approved') {
+        toast.info("Your previous exit request was approved. Exiting now.");
+        navigate('/');
+        return;
+      }
+      // Check if already pending
+      if (exitRequestStatus === 'pending') {
+        toast.info("You already have a pending exit request for this project.");
+        return;
+      }
+
+      setIsRequestingExit(true);
+      try {
+        const { error } = await supabase
+          .from('project_exit_requests')
+          .insert({
+            project_id: project.id,
+            requester_id: user.id,
+            approver_id: project.owner_id, // Project owner needs to approve
+            status: 'pending',
+          });
+
+        if (error) throw error;
+
+        setExitRequestStatus('pending');
+        toast.success("Save & Exit request sent to the project owner. You will be notified upon approval.");
+      } catch (err) {
+        console.error("Error requesting save and exit:", err);
+        toast.error("Failed to send Save & Exit request.");
+      } finally {
+        setIsRequestingExit(false);
+      }
+    }
+  };
+
 
   if (isLoading) {
     return <div className="text-center p-6">Loading studio...</div>;
@@ -181,7 +274,6 @@ const MusicStudio = () => {
     );
   }
 
-  // Check if this project has tracks
   const hasTracks = tracks.length > 0;
 
   return (
@@ -190,7 +282,9 @@ const MusicStudio = () => {
       mode={project?.mode || 'solo'}
       onDelete={handleDeleteProject}
       isDeleting={isDeleting}
-      onSaveAndExit={() => navigate('/')} // Added prop for Save & Exit
+      onRequestSaveAndExit={handleRequestSaveAndExit}
+      isRequestingExit={isRequestingExit || exitRequestStatus === 'pending'}
+      canExitImmediately={project?.owner_id === user?.id || project?.mode === 'solo' || project?.mode === 'learning' || exitRequestStatus === 'approved'}
     >
       {user && project?.mode === 'collaboration' && <CollaborationRequests />}
       
@@ -206,7 +300,7 @@ const MusicStudio = () => {
       )}
       
       {showUploader && projectId && user && (
-        <div className="mb-6 upload-track"> {/* Added class for scrolling if needed elsewhere, though direct buttons are removed */}
+        <div className="mb-6 upload-track">
           <TrackUploader 
             projectId={projectId} 
             onUploadComplete={handleTrackUploadComplete} 
@@ -233,11 +327,11 @@ const MusicStudio = () => {
         />
       </div>
       
-      {user && project && ( // Ensure project is loaded before rendering TrackList
+      {user && project && (
         <div className="mt-8">
           <TrackList 
             projectId={project.id}
-            userId={user.id} // Passing userId as TrackList still defines it, though might be unused
+            userId={user.id}
           />
         </div>
       )}
