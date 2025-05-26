@@ -4,8 +4,11 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { ModeCard } from "@/components/ModeCard";
 import { ArtistCategory, DrumIcon, PianoIcon, GuitarIcon, MicrophoneIcon, HeadphonesIcon, NotesIcon } from "@/components/ArtistCategory";
+import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
 
 const Index = () => {
+  const { user } = useAuth(); // Get user authentication state
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -24,12 +27,20 @@ const Index = () => {
                 or sharpening your skills, TuneTogether is your creative space to make music happen.
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <Button asChild size="lg" className="bg-music-400 hover:bg-music-500">
-                  <Link to="/signup">Sign Up</Link>
-                </Button>
-                <Button asChild size="lg" variant="outline">
-                  <Link to="/login">Log In</Link>
-                </Button>
+                {user ? (
+                  <Button asChild size="lg" className="bg-music-400 hover:bg-music-500">
+                    <Link to="/create/solo">Create New Project</Link>
+                  </Button>
+                ) : (
+                  <>
+                    <Button asChild size="lg" className="bg-music-400 hover:bg-music-500">
+                      <Link to="/signup">Sign Up</Link>
+                    </Button>
+                    <Button asChild size="lg" variant="outline">
+                      <Link to="/login">Log In</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
