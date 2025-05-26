@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Button } from "./ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,7 +44,7 @@ export function Navbar() {
           <Link to="/explore" className="text-sm font-medium transition-colors hover:text-music-400">
             Explore
           </Link>
-          <Link to="/learn" className="text-sm font-medium transition-colors hover:text-music-400">
+          <Link to="/learn#community-extras" className="text-sm font-medium transition-colors hover:text-music-400">
             Learn
           </Link>
           <Link to="/about" className="text-sm font-medium transition-colors hover:text-music-400">

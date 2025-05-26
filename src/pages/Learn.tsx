@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,16 +6,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { Badge } from "@/components/ui/badge";
-import { Bookmark, User, Youtube, Lightbulb, MessageSquare, Trophy } from "lucide-react"; // Added Youtube, Lightbulb, MessageSquare, Trophy
+import { Bookmark, User, Youtube, Lightbulb, MessageSquare, Trophy } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { Textarea } from "@/components/ui/textarea"; // Added Textarea
+import { useNavigate, useLocation } from "react-router-dom"; // Added useLocation
+import { Textarea } from "@/components/ui/textarea";
 
 const Learn = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation(); // For handling hash links
+
+  // Scroll to hash link if present
+  React.useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.replace("#", "");
+      const element = document.getElementById(id);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [location.hash]);
 
   const { data: categories } = useQuery({
     queryKey: ['learning-categories'],
@@ -154,7 +167,7 @@ const Learn = () => {
               ))}
 
               {/* New Section: Community & Extras */}
-              <section className="mt-12">
+              <section id="community-extras" className="mt-12 scroll-mt-20"> {/* Added id and scroll-mt for better scroll position */}
                 <h2 className="text-2xl font-semibold mb-6 border-b pb-2">Community & Extras</h2>
                 <div className="space-y-8">
 
@@ -298,3 +311,4 @@ const Learn = () => {
 };
 
 export default Learn;
+
