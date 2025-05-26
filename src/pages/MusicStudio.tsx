@@ -13,11 +13,16 @@ import { TrackUploader } from "@/components/TrackUploader";
 import { AISuggestionPanel } from "@/components/AISuggestionPanel";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import type { Tables } from "@/integrations/supabase/types"; // Import Tables type
+import type { Tables } from "@/integrations/supabase/types";
 
-interface Project extends Tables<'projects'> { // Use Tables<'projects'> for strong typing
-  // id, title, description, mode, master_volume, tempo, updated_at are from Tables<'projects'>
-  // owner_id is also part of Tables<'projects'>
+// Define the specific project modes
+type ProjectMode = 'solo' | 'collaboration' | 'learning';
+
+// Update Project interface to correctly type 'mode'
+interface Project extends Omit<Tables<'projects'>, 'mode'> {
+  mode: ProjectMode;
+  // owner_id is part of Tables<'projects'>, ensure it's included
+  // All other properties from Tables<'projects'> (except mode) are inherited
 }
 
 interface Track extends Tables<'tracks'> {
@@ -26,7 +31,8 @@ interface Track extends Tables<'tracks'> {
 
 interface ProjectExitRequest extends Tables<'project_exit_requests'> {}
 
-const isValidProjectMode = (mode: string): mode is 'solo' | 'collaboration' | 'learning' => {
+// Update type guard to use ProjectMode
+const isValidProjectMode = (mode: string): mode is ProjectMode => {
   return ['solo', 'collaboration', 'learning'].includes(mode);
 };
 
@@ -53,20 +59,21 @@ const MusicStudio = () => {
         setIsLoading(true);
         const { data, error } = await supabase
           .from('projects')
-          .select('*') // Select all columns, including owner_id
+          .select('*') 
           .eq('id', projectId)
-          .single();
+          .single(); // Using .single() assumes project always exists, consider .maybeSingle() if not guaranteed
 
         if (error) throw error;
         
         if (data) {
-          const mode = isValidProjectMode(data.mode) ? data.mode : 'solo';
+          // Validate and cast mode explicitly
+          const validatedMode = isValidProjectMode(data.mode) ? data.mode : 'solo';
           setProject({
-            ...data,
-            mode,
+            ...(data as Omit<Tables<'projects'>, 'mode'>), // Cast data to avoid type conflict before override
+            mode: validatedMode,
           });
         } else {
-          setProject(null);
+          setProject(null); // Handle case where project is not found
         }
       } catch (err) {
         console.error("Error fetching project:", err);
@@ -175,7 +182,7 @@ const MusicStudio = () => {
         }
       };
     }
-  }, [projectId, user]); // Added user to dependency array
+  }, [projectId, user]);
 
   const handleDeleteProject = async () => {
     if (!projectId) return;
@@ -208,6 +215,7 @@ const MusicStudio = () => {
   const handleAISuggestionAccepted = () => {
     toast.success("AI suggestion integrated into your project");
   };
+
 
   const handleRequestSaveAndExit = async () => {
     if (!project || !user) {
@@ -259,7 +267,6 @@ const MusicStudio = () => {
     }
   };
 
-
   if (isLoading) {
     return <div className="text-center p-6">Loading studio...</div>;
   }
@@ -276,15 +283,16 @@ const MusicStudio = () => {
 
   const hasTracks = tracks.length > 0;
 
+  // The error was here: project.mode was string, now it will be ProjectMode
   return (
     <StudioLayout 
-      title={project?.title || "Loading Project..."}
-      mode={project?.mode || 'solo'}
+      title={project.title || "Loading Project..."} // project is guaranteed to be non-null here
+      mode={project.mode} // project.mode is now ProjectMode
       onDelete={handleDeleteProject}
       isDeleting={isDeleting}
       onRequestSaveAndExit={handleRequestSaveAndExit}
       isRequestingExit={isRequestingExit || exitRequestStatus === 'pending'}
-      canExitImmediately={project?.owner_id === user?.id || project?.mode === 'solo' || project?.mode === 'learning' || exitRequestStatus === 'approved'}
+      canExitImmediately={project.owner_id === user?.id || project.mode === 'solo' || project.mode === 'learning' || exitRequestStatus === 'approved'}
     >
       {user && project?.mode === 'collaboration' && <CollaborationRequests />}
       
