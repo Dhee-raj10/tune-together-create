@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Check, X, Music } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom'; // Removed useNavigate
 
 interface CollaborationRequest {
   id: string;
@@ -14,7 +14,7 @@ interface CollaborationRequest {
   created_at: string;
   project_id: string;
   from_user_id: string;
-  projects: { // This comes from the join
+  projects: {
     id: string;
     title: string;
   };
@@ -28,7 +28,7 @@ interface CollaborationRequest {
 
 export const CollaborationRequests = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Removed useNavigate
   const [requests, setRequests] = useState<CollaborationRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,7 +38,6 @@ export const CollaborationRequests = () => {
     const fetchRequests = async () => {
       setLoading(true);
       try {
-        // First, fetch collaboration requests with project info
         const { data: requestsData, error: requestsError } = await supabase
           .from('collaboration_requests')
           .select(`
@@ -65,7 +64,6 @@ export const CollaborationRequests = () => {
           return;
         }
 
-        // Get unique sender IDs
         const senderIds = [...new Set(requestsData.map(req => req.from_user_id))];
 
         if (senderIds.length === 0) {
@@ -74,7 +72,6 @@ export const CollaborationRequests = () => {
             return;
         }
 
-        // Fetch sender profiles
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('id, full_name, username, avatar_url')
@@ -82,25 +79,22 @@ export const CollaborationRequests = () => {
 
         if (profilesError) throw profilesError;
         
-        // Ensure profilesData is not null before mapping
         const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
 
-        // Combine requests with sender information
         const transformedData: CollaborationRequest[] = requestsData.map(req => {
           const senderProfile = profilesMap.get(req.from_user_id);
           
-          // Ensure req.projects is correctly accessed and is not null
           const projectTitle = req.projects?.title || 'Unknown Project';
-          const projectIdFromJoin = req.projects?.id || req.project_id; // Fallback if join fails for some reason
+          const projectIdFromJoin = req.projects?.id || req.project_id;
 
           return {
             id: req.id,
             message: req.message,
             status: req.status,
             created_at: req.created_at,
-            project_id: req.project_id, // This is the FK in collaboration_requests
+            project_id: req.project_id,
             from_user_id: req.from_user_id,
-            projects: { // Ensure this structure matches the interface
+            projects: {
                 id: projectIdFromJoin,
                 title: projectTitle
             },
@@ -124,7 +118,6 @@ export const CollaborationRequests = () => {
 
     fetchRequests();
 
-    // Set up realtime subscription for new requests
     const channel = supabase
       .channel(`collaboration-requests-to-${user.id}`)
       .on(
@@ -137,7 +130,7 @@ export const CollaborationRequests = () => {
         },
         (payload) => {
             console.log('New collaboration request received:', payload);
-            fetchRequests();
+            fetchRequests(); // Refresh list on new request
         }
       )
       .on(
@@ -150,7 +143,9 @@ export const CollaborationRequests = () => {
         },
         (payload) => {
             console.log('Collaboration request updated:', payload);
-            fetchRequests();
+            // This could be smarter, e.g., updating only the specific request
+            // For now, refetching the list is fine.
+            fetchRequests(); 
         }
       )
       .subscribe();
@@ -165,7 +160,6 @@ export const CollaborationRequests = () => {
     if (!user) return;
 
     try {
-      // Find the request before updating its status
       const request = requests.find(req => req.id === requestId);
       
       if (!request) {
@@ -173,38 +167,37 @@ export const CollaborationRequests = () => {
         return;
       }
 
-      // Update request status
       const { error: updateError } = await supabase
         .from('collaboration_requests')
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', requestId)
-        .eq('to_user_id', user.id); // Ensure only the recipient can update
+        .eq('to_user_id', user.id); 
 
       if (updateError) throw updateError;
 
-      // If accepted, add the user as a collaborator
       if (status === 'accepted') {
         if (request.project_id) { 
           const { error: collabError } = await supabase
             .from('project_collaborators')
             .insert({
               project_id: request.project_id,
-              user_id: user.id,
+              user_id: user.id, // This should be the user who accepted the request, i.e., `user.id` (the `to_user_id` of the request)
               role: 'contributor' 
             });
 
           if (collabError) throw collabError;
           
           toast.success(`You are now collaborating on "${request.projects?.title || 'the project'}"`);
-          console.log('Navigating to project:', request.project_id);
-          navigate(`/studio/${request.project_id}`);
+          // Navigation removed as per user request
         } else {
-          throw new Error("Could not find project ID to accept collaboration.");
+          console.error("Collaboration accepted, but project_id was missing in the request object:", request);
+          toast.error("Collaboration accepted, but could not link to project due to missing ID. Please contact support.");
         }
       } else {
         toast.info('Collaboration request rejected');
       }
 
+      // Update UI by removing the processed request from the list
       setRequests(prev => prev.filter(req => req.id !== requestId));
     } catch (error: any) {
       console.error('Error handling collaboration request:', error);
@@ -278,3 +271,4 @@ export const CollaborationRequests = () => {
     </div>
   );
 };
+
