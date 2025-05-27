@@ -53,31 +53,46 @@ const MusicStudio = () => {
     const fetchProject = async () => {
       if (!projectId) {
         setIsLoading(false);
+        toast.error("No project ID provided.");
+        navigate('/'); // Navigate to a safe page if no project ID
         return;
       }
       try {
         setIsLoading(true);
+        console.log(`MusicStudio: Fetching project with ID: ${projectId}`);
         const { data, error } = await supabase
           .from('projects')
-          .select('*') 
+          .select('*')
           .eq('id', projectId)
-          .single(); // Using .single() assumes project always exists, consider .maybeSingle() if not guaranteed
+          .maybeSingle(); // Changed from .single() to .maybeSingle()
 
-        if (error) throw error;
+        if (error) {
+          // This error is for query execution issues, not for "not found"
+          console.error("Error fetching project details:", error);
+          toast.error(`Failed to load project details: ${error.message}`);
+          setProject(null);
+          setIsLoading(false);
+          navigate('/'); // Optionally navigate away on critical fetch error
+          return;
+        }
         
-        if (data) {
+        if (!data) {
+          // Handle case where project is not found
+          console.warn(`MusicStudio: Project with ID ${projectId} not found or user lacks access.`);
+          toast.error("Project not found. It might have been deleted or you don't have access.");
+          setProject(null);
+          // No navigate here, will render "Project not found" UI below
+        } else {
           // Validate and cast mode explicitly
           const validatedMode = isValidProjectMode(data.mode) ? data.mode : 'solo';
           setProject({
-            ...(data as Omit<Tables<'projects'>, 'mode'>), // Cast data to avoid type conflict before override
+            ...(data as Omit<Tables<'projects'>, 'mode'>),
             mode: validatedMode,
           });
-        } else {
-          setProject(null); // Handle case where project is not found
         }
-      } catch (err) {
-        console.error("Error fetching project:", err);
-        toast.error("Failed to load project details.");
+      } catch (err: any) { // Catch any other unexpected errors during fetch logic
+        console.error("Unexpected error in fetchProject:", err);
+        toast.error(`An unexpected error occurred: ${err.message || "Unknown error"}`);
         setProject(null);
       } finally {
         setIsLoading(false);
@@ -164,9 +179,6 @@ const MusicStudio = () => {
               setExitRequestStatus(updatedRequest.status);
               if (updatedRequest.status === 'approved') {
                 toast.success("Exit request approved! You can now leave the project.");
-                // Optionally navigate away or enable a "Leave Now" button
-                // For now, just notify. User can click "Save & Exit" again.
-                // Or directly navigate: navigate('/');
               } else if (updatedRequest.status === 'rejected') {
                 toast.error("Exit request rejected by the project owner.");
               }
@@ -182,7 +194,7 @@ const MusicStudio = () => {
         }
       };
     }
-  }, [projectId, user]);
+  }, [projectId, user, navigate]); // Added navigate to dependency array as it's used in effect
 
   const handleDeleteProject = async () => {
     if (!projectId) return;
@@ -208,7 +220,6 @@ const MusicStudio = () => {
 
   const handleTrackUploadComplete = (trackData: any) => {
     setShowUploader(false);
-    // setTracks(prevTracks => [trackData, ...prevTracks]); // This is handled by realtime now
     toast.success("Track uploaded and added to your project");
   };
 
@@ -223,21 +234,17 @@ const MusicStudio = () => {
       return;
     }
 
-    // If user is the owner or project mode is solo/learning, exit immediately
     if (project.owner_id === user.id || project.mode === 'solo' || project.mode === 'learning') {
       navigate('/');
       return;
     }
     
-    // If it's a collaboration and user is not the owner
     if (project.mode === 'collaboration' && project.owner_id !== user.id) {
-      // Check if already approved
       if (exitRequestStatus === 'approved') {
         toast.info("Your previous exit request was approved. Exiting now.");
         navigate('/');
         return;
       }
-      // Check if already pending
       if (exitRequestStatus === 'pending') {
         toast.info("You already have a pending exit request for this project.");
         return;
@@ -250,7 +257,7 @@ const MusicStudio = () => {
           .insert({
             project_id: project.id,
             requester_id: user.id,
-            approver_id: project.owner_id, // Project owner needs to approve
+            approver_id: project.owner_id,
             status: 'pending',
           });
 
@@ -271,11 +278,11 @@ const MusicStudio = () => {
     return <div className="text-center p-6">Loading studio...</div>;
   }
 
-  if (!project) {
+  if (!project) { // This condition will now be true if project is not found by maybeSingle()
     return (
       <div className="text-center p-6">
-        <h2 className="text-2xl font-bold mb-4">Project not found</h2>
-        <p>The project you are looking for does not exist or could not be loaded.</p>
+        <h2 className="text-2xl font-bold mb-4">Project Not Found</h2>
+        <p>The project you are looking for does not exist, could not be loaded, or you may not have access.</p>
         <Button onClick={() => navigate('/')} className="mt-4">Go to Homepage</Button>
       </div>
     );
@@ -283,11 +290,10 @@ const MusicStudio = () => {
 
   const hasTracks = tracks.length > 0;
 
-  // The error was here: project.mode was string, now it will be ProjectMode
   return (
     <StudioLayout 
-      title={project.title || "Loading Project..."} // project is guaranteed to be non-null here
-      mode={project.mode} // project.mode is now ProjectMode
+      title={project.title || "Loading Project..."}
+      mode={project.mode}
       onDelete={handleDeleteProject}
       isDeleting={isDeleting}
       onRequestSaveAndExit={handleRequestSaveAndExit}
