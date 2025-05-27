@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Check, X, Music } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate } from 'react-router-dom';
 
 interface CollaborationRequest {
   id: string;
@@ -27,7 +28,7 @@ interface CollaborationRequest {
 
 export const CollaborationRequests = () => {
   const { user } = useAuth();
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<CollaborationRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,7 +36,7 @@ export const CollaborationRequests = () => {
     if (!user) return;
 
     const fetchRequests = async () => {
-      setLoading(true); // Ensure loading is true at the start of fetch
+      setLoading(true);
       try {
         // First, fetch collaboration requests with project info
         const { data: requestsData, error: requestsError } = await supabase
@@ -60,14 +61,14 @@ export const CollaborationRequests = () => {
 
         if (!requestsData || requestsData.length === 0) {
           setRequests([]);
-          setLoading(false); // Added to stop loading if no data
+          setLoading(false);
           return;
         }
 
         // Get unique sender IDs
         const senderIds = [...new Set(requestsData.map(req => req.from_user_id))];
 
-        if (senderIds.length === 0) { // Handle case where senderIds might be empty
+        if (senderIds.length === 0) {
             setRequests([]);
             setLoading(false);
             return;
@@ -125,7 +126,7 @@ export const CollaborationRequests = () => {
 
     // Set up realtime subscription for new requests
     const channel = supabase
-      .channel(`collaboration-requests-to-${user.id}`) // More specific channel name
+      .channel(`collaboration-requests-to-${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -136,7 +137,7 @@ export const CollaborationRequests = () => {
         },
         (payload) => {
             console.log('New collaboration request received:', payload);
-            fetchRequests(); // Re-fetch all requests to update the list
+            fetchRequests();
         }
       )
       .on(
@@ -149,17 +150,10 @@ export const CollaborationRequests = () => {
         },
         (payload) => {
             console.log('Collaboration request updated:', payload);
-            fetchRequests(); // Re-fetch to reflect status changes made by sender etc.
+            fetchRequests();
         }
       )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Subscribed to collaboration requests channel');
-        }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('Subscription error on collaboration requests:', err);
-        }
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
@@ -171,6 +165,14 @@ export const CollaborationRequests = () => {
     if (!user) return;
 
     try {
+      // Find the request before updating its status
+      const request = requests.find(req => req.id === requestId);
+      
+      if (!request) {
+        toast.error('Request not found');
+        return;
+      }
+
       // Update request status
       const { error: updateError } = await supabase
         .from('collaboration_requests')
@@ -180,11 +182,9 @@ export const CollaborationRequests = () => {
 
       if (updateError) throw updateError;
 
-      const request = requests.find(req => req.id === requestId);
-
       // If accepted, add the user as a collaborator
       if (status === 'accepted') {
-        if (request && request.project_id) { 
+        if (request.project_id) { 
           const { error: collabError } = await supabase
             .from('project_collaborators')
             .insert({
@@ -196,9 +196,10 @@ export const CollaborationRequests = () => {
           if (collabError) throw collabError;
           
           toast.success(`You are now collaborating on "${request.projects?.title || 'the project'}"`);
-          navigate(`/studio/${request.project_id}`); // Navigate to the project studio
+          console.log('Navigating to project:', request.project_id);
+          navigate(`/studio/${request.project_id}`);
         } else {
-            throw new Error("Could not find request details or project ID to accept collaboration.");
+          throw new Error("Could not find project ID to accept collaboration.");
         }
       } else {
         toast.info('Collaboration request rejected');
