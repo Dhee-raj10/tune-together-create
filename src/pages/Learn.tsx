@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,13 +9,13 @@ import { Bookmark, User, Youtube, Lightbulb, MessageSquare, Trophy } from "lucid
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate, useLocation } from "react-router-dom"; // Added useLocation
+import { useNavigate, useLocation } from "react-router-dom";
 import { Textarea } from "@/components/ui/textarea";
 
 const Learn = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // For handling hash links
+  const location = useLocation();
 
   // Scroll to hash link if present
   React.useEffect(() => {
@@ -71,15 +70,16 @@ const Learn = () => {
   });
 
 
-  // Placeholder data for new sections
+  // Updated live collaborations with actual YouTube links
   const liveCollaborations = [
-    { id: 1, title: "Live Jazz Trio Session", description: "Watch a professional jazz trio collaborate in real-time.", url: "https://www.youtube.com/watch?v=example1" },
-    { id: 2, title: "Electronic Music Production Stream", description: "Producer building a track from scratch, live.", url: "https://www.youtube.com/watch?v=example2" },
+    { id: 1, title: "Live Jazz Trio Session", description: "Watch a professional jazz trio collaborate in real-time.", url: "https://youtu.be/uHFJ9qhR0VM?si=CpFAxrnuOXofuhVk" },
+    { id: 2, title: "Electronic Music Production Stream", description: "Producer building a track from scratch, live.", url: "https://youtu.be/Hi72cCOPUQU?si=TfHwsoh-kaSofUTy" },
   ];
 
+  // Updated expert tutorials with actual YouTube links
   const expertTutorials = [
-    { id: 1, title: "Advanced Mixing Techniques", description: "Deep dive into professional mixing strategies.", url: "https://www.youtube.com/watch?v=expert1" },
-    { id: 2, title: "Music Theory for Songwriters", description: "Unlock new songwriting possibilities.", url: "https://www.youtube.com/watch?v=expert2" },
+    { id: 1, title: "Advanced Mixing Techniques", description: "Deep dive into professional mixing strategies.", url: "https://youtu.be/6YwWKn6k0Mg?si=eOl6eRlWYFMntQkC" },
+    { id: 2, title: "Music Theory for Songwriters", description: "Unlock new songwriting possibilities.", url: "https://youtube.com/playlist?list=PLViqYKpnxtKotCmlxW4tRh7HCqqKOkaA9&si=hvy4-lD6bfyQ0hwX" },
   ];
 
   const musicChallenges = [
@@ -166,8 +166,8 @@ const Learn = () => {
                 </section>
               ))}
 
-              {/* New Section: Community & Extras */}
-              <section id="community-extras" className="mt-12 scroll-mt-20"> {/* Added id and scroll-mt for better scroll position */}
+              {/* Community & Extras Section */}
+              <section id="community-extras" className="mt-12 scroll-mt-20">
                 <h2 className="text-2xl font-semibold mb-6 border-b pb-2">Community & Extras</h2>
                 <div className="space-y-8">
 
@@ -311,4 +311,3 @@ const Learn = () => {
 };
 
 export default Learn;
-
