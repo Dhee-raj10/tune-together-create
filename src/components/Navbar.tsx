@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,7 +36,7 @@ export const Navbar = () => {
               Home
             </Link>
             <Link
-              to="/"
+              to="/explore"
               className="transition-colors hover:text-foreground/80 text-foreground/60"
             >
               Explore

@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { ModeCard } from "@/components/ModeCard";
 import { ArtistCategory, DrumIcon, PianoIcon, GuitarIcon, MicrophoneIcon, HeadphonesIcon, NotesIcon } from "@/components/ArtistCategory";
 import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
 
@@ -29,7 +28,7 @@ const Index = () => {
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 {user ? (
                   <Button asChild size="lg" className="bg-music-400 hover:bg-music-500">
-                    <Link to="/create/solo">Create New Project</Link>
+                    <Link to="/create/solo">Start Creating</Link>
                   </Button>
                 ) : (
                   <>
@@ -45,58 +44,6 @@ const Index = () => {
             </div>
           </div>
           <div className="absolute inset-0 -z-10 h-full w-full bg-white [background:radial-gradient(125%_125%_at_50%_30%,#fff_40%,#8B5CF6_100%)]" />
-        </section>
-
-        {/* Project Modes Section */}
-        <section className="py-16 md:py-24">
-          <div className="container">
-            <div className="mx-auto mb-12 max-w-3xl text-center">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-                Create a New Project
-              </h2>
-              <p className="mt-4 text-lg text-muted-foreground">
-                Choose how you want to work on your next musical masterpiece.
-              </p>
-            </div>
-            <div className="grid gap-8 md:grid-cols-3">
-              <ModeCard
-                title="Solo Mode"
-                description="Create and experiment on your own, at your own pace."
-                icon={<UserIcon className="h-6 w-6" />}
-                features={[
-                  "Build your own tracks at your own pace",
-                  "Access instruments, loops, and production tools",
-                  "Save and revisit your projects anytime",
-                ]}
-                linkTo="/create/solo"
-                buttonText="Start Solo Project"
-              />
-              <ModeCard
-                title="Collaboration Mode"
-                description="Team up with other musicians to create something amazing together."
-                icon={<UsersIcon className="h-6 w-6" />}
-                features={[
-                  "Connect with musicians of complementary skills",
-                  "Work asynchronously or in real-time",
-                  "Share files, feedback, and ideas easily",
-                ]}
-                linkTo="/create/collaborate" // This should be /create/collaborate based on user intent and App.tsx
-                buttonText="Find Collaborators"
-              />
-              <ModeCard
-                title="Learning Mode"
-                description="Improve your skills while creating with guidance and resources."
-                icon={<BookOpenIcon className="h-6 w-6" />}
-                features={[
-                  "Access expert tutorials and creative walkthroughs",
-                  "Get tips from professional musicians",
-                  "Participate in feedback sessions and challenges",
-                ]}
-                linkTo="/create/learn" // This should be /create/learn based on user intent and App.tsx
-                buttonText="Start Learning"
-              />
-            </div>
-          </div>
         </section>
 
         {/* Artist Categories Section */}
@@ -174,7 +121,7 @@ const Index = () => {
               </p>
               <div className="mt-8">
                 <Button asChild size="lg" variant="secondary" className="bg-white text-music-400 hover:bg-gray-100">
-                  <Link to="/signup">Create Your First Project</Link>
+                  <Link to="/signup">Get Started Today</Link>
                 </Button>
               </div>
             </div>
@@ -195,68 +142,6 @@ function FeatureCard({ icon, title, description }: { icon: React.ReactNode; titl
       <h3 className="mb-2 text-xl font-medium">{title}</h3>
       <p className="text-muted-foreground">{description}</p>
     </div>
-  );
-}
-
-function UserIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function UsersIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function BookOpenIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-    </svg>
   );
 }
 
