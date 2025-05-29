@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '@/components/UserProfile';
@@ -17,7 +17,7 @@ interface Project {
   description: string | null;
   mode: 'solo' | 'collaboration' | 'learning';
   created_at: string;
-  owner_id?: string; // owner_id can be from the projects table itself
+  owner_id?: string;
   updated_at?: string;
 }
 
@@ -31,84 +31,85 @@ const UserProfilePage = () => {
   const profileUserId = userId || user?.id;
   const isOwnProfile = !userId || (user && userId === user.id);
 
-  useEffect(() => {
-    const fetchUserProjects = async () => {
-      if (!profileUserId) {
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      
-      try {
-        let allFetchedProjects: Project[] = [];
-
-        // Fetch projects owned by the user
-        const { data: ownedProjectsData, error: ownedError } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('owner_id', profileUserId);
-
-        if (ownedError) throw ownedError;
-        if (ownedProjectsData) {
-          allFetchedProjects = allFetchedProjects.concat(
-            ownedProjectsData.map(p => ({ ...p, mode: validateProjectMode(p.mode) }))
-          );
-        }
-
-        // If viewing own profile or any collaborative project, fetch projects where the user is a collaborator
-        // For other's profiles, we only want to show their collaborative projects they are part of, not their solo ones.
-        // The project_collaborators table implies it's a collaborative project already.
-        const { data: collabProjectsData, error: collabError } = await supabase
-          .from('project_collaborators')
-          .select('projects(*)') // Select all columns from the related projects table
-          .eq('user_id', profileUserId);
-
-        if (collabError) throw collabError;
-
-        if (collabProjectsData) {
-          const collaboratorProjects = collabProjectsData
-            .map(pc => pc.projects) // Extract the project object
-            .filter(p => p !== null) // Filter out any null project objects
-            .map(p => ({ ...p, mode: validateProjectMode(p!.mode) } as Project)); // Assert p is not null and cast
-          allFetchedProjects = allFetchedProjects.concat(collaboratorProjects);
-        }
-        
-        // Deduplicate projects (in case a user is owner and also listed as collaborator, though unlikely)
-        const uniqueProjects = Array.from(new Map(allFetchedProjects.map(p => [p.id, p])).values());
-        
-        // Filter projects based on profile view (own vs other)
-        const finalProjects = uniqueProjects.filter(p => {
-          if (isOwnProfile) return true; // Show all projects (owned or collaborated) on own profile
-          return p.mode !== 'solo'; // On other's profile, only show non-solo projects
-        }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-
-        setProjects(finalProjects);
-
-      } catch (err) {
-        console.error('Error fetching user projects:', err);
-        toast.error('Failed to load projects');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (profileUserId) {
-      fetchUserProjects();
-    } else {
-      setIsLoading(false);
-    }
-  }, [profileUserId, isOwnProfile]);
-
   // Helper function to validate project mode
   const validateProjectMode = (mode: string): 'solo' | 'collaboration' | 'learning' => {
     if (mode === 'solo' || mode === 'collaboration' || mode === 'learning') {
       return mode;
     }
-    // Default to 'solo' if the mode is invalid
     return 'solo';
   };
+
+  const fetchUserProjects = useCallback(async () => {
+    if (!profileUserId) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      let allFetchedProjects: Project[] = [];
+
+      // Fetch projects owned by the user
+      const { data: ownedProjectsData, error: ownedError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('owner_id', profileUserId);
+
+      if (ownedError) throw ownedError;
+      if (ownedProjectsData) {
+        allFetchedProjects = allFetchedProjects.concat(
+          ownedProjectsData.map(p => ({ ...p, mode: validateProjectMode(p.mode) }))
+        );
+      }
+
+      // Fetch projects where the user is a collaborator
+      const { data: collabProjectsData, error: collabError } = await supabase
+        .from('project_collaborators')
+        .select('projects(*)')
+        .eq('user_id', profileUserId);
+
+      if (collabError) throw collabError;
+
+      if (collabProjectsData) {
+        const collaboratorProjects = collabProjectsData
+          .map(pc => pc.projects)
+          .filter(p => p !== null)
+          .map(p => ({ ...p, mode: validateProjectMode(p!.mode) } as Project));
+        allFetchedProjects = allFetchedProjects.concat(collaboratorProjects);
+      }
+      
+      // Deduplicate projects
+      const uniqueProjects = Array.from(new Map(allFetchedProjects.map(p => [p.id, p])).values());
+      
+      // Filter projects based on profile view
+      const finalProjects = uniqueProjects.filter(p => {
+        if (isOwnProfile) return true;
+        return p.mode !== 'solo';
+      }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setProjects(finalProjects);
+
+    } catch (err) {
+      console.error('Error fetching user projects:', err);
+      toast.error('Failed to load projects');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [profileUserId, isOwnProfile]);
+
+  useEffect(() => {
+    if (profileUserId) {
+      fetchUserProjects();
+    } else {
+      setIsLoading(false);
+    }
+  }, [fetchUserProjects]);
+
+  const handleCollaborationAccepted = useCallback(() => {
+    // Refresh the project list when a collaboration request is accepted
+    fetchUserProjects();
+  }, [fetchUserProjects]);
 
   const handleLogout = async () => {
     try {
@@ -122,13 +123,10 @@ const UserProfilePage = () => {
   };
 
   if (!user && !userId) {
-    // This case should ideally be handled by redirecting to login if no user and no userId
-    // For instance, in a route guard or higher up. For now, showing error.
     toast.error('Please log in to view profile or specify a user ID.');
-    navigate('/login'); // Or handle as appropriate
+    navigate('/login');
     return null;
   }
-
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -140,10 +138,10 @@ const UserProfilePage = () => {
             <UserProfile userId={profileUserId} />
             
             {/* Show collaboration requests only for own profile */}
-            {isOwnProfile && user && ( // Ensure user is defined for CollaborationRequests
+            {isOwnProfile && user && (
               <Card>
                 <CardContent className="pt-6">
-                  <CollaborationRequests />
+                  <CollaborationRequests onRequestAccepted={handleCollaborationAccepted} />
                 </CardContent>
               </Card>
             )}

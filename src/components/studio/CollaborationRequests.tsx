@@ -5,7 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Check, X, Music } from 'lucide-react';
-// import { useNavigate } from 'react-router-dom'; // Removed useNavigate
 
 interface CollaborationRequest {
   id: string;
@@ -26,9 +25,12 @@ interface CollaborationRequest {
   };
 }
 
-export const CollaborationRequests = () => {
+interface CollaborationRequestsProps {
+  onRequestAccepted?: () => void;
+}
+
+export const CollaborationRequests = ({ onRequestAccepted }: CollaborationRequestsProps) => {
   const { user } = useAuth();
-  // const navigate = useNavigate(); // Removed useNavigate
   const [requests, setRequests] = useState<CollaborationRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -181,14 +183,18 @@ export const CollaborationRequests = () => {
             .from('project_collaborators')
             .insert({
               project_id: request.project_id,
-              user_id: user.id, // This should be the user who accepted the request, i.e., `user.id` (the `to_user_id` of the request)
+              user_id: user.id,
               role: 'contributor' 
             });
 
           if (collabError) throw collabError;
           
           toast.success(`You are now collaborating on "${request.projects?.title || 'the project'}"`);
-          // Navigation removed as per user request
+          
+          // Notify parent component that a request was accepted
+          if (onRequestAccepted) {
+            onRequestAccepted();
+          }
         } else {
           console.error("Collaboration accepted, but project_id was missing in the request object:", request);
           toast.error("Collaboration accepted, but could not link to project due to missing ID. Please contact support.");
